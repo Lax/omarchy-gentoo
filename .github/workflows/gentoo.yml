@@ -15,6 +15,10 @@ name: Gentoo overlay
 # lint job only ever parses that content with repo-owned tooling inside a
 # stock gentoo/stage3 container. Real emerge runs (which execute ebuild code)
 # happen exclusively from master: the nightly smoke job and the mirror.
+# Build caches (distfiles, locally built binary packages, ccache) persist
+# between runs to keep the desktop-sized closures affordable; everything in
+# them was produced by earlier runs of this same pipeline, never fetched
+# from a binhost, so the trust surface is unchanged.
 on:
   pull_request:
     paths:
@@ -58,7 +62,9 @@ jobs:
     # runs on the host (checkout needs git for submodules; the stage3 image
     # ships none) and drives the container through docker run - the same
     # pattern upstream's test.yml uses for its Arch container. No distfiles
-    # are fetched here; the nightly job owns Manifest generation.
+    # are fetched here; the nightly job owns Manifest generation. The build
+    # caches are restored read-only here (no save): the nightly smoke job
+    # populates and refreshes the pool.
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
@@ -68,11 +74,22 @@ jobs:
           persist-credentials: false
           submodules: recursive
 
+      - name: Restore build caches (read-only consumer)
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            .build-cache/distfiles
+            .build-cache/bin-pkgs
+          key: omarchy-build-v1-${{ github.run_id }}-${{ github.job }}
+          restore-keys: omarchy-build-v1-
+
       - name: pkgcheck scan and resolve every package (stage3)
         run: |
           docker run --rm \
             -v "$PWD/gentoo:/var/db/repos/omarchy" \
             -v "$PWD/bin/gentoo-resolve:/usr/local/bin/gentoo-resolve:ro" \
+            -v "$PWD/.build-cache/distfiles:/var/cache/distfiles" \
+            -v "$PWD/.build-cache/bin-pkgs:/var/cache/binpkgs" \
             gentoo/stage3 bash -c '
               set -eu
               command -v getuto >/dev/null && getuto || true
@@ -81,7 +98,8 @@ jobs:
               mkdir -p /etc/portage/repos.conf
               ln -sf /usr/share/portage/config/repos.conf /etc/portage/repos.conf/gentoo.conf
               printf "[omarchy]\nlocation = /var/db/repos/omarchy\nmasters = gentoo\nauto-sync = off\n" > /etc/portage/repos.conf/omarchy.conf
-              emerge --quiet dev-util/pkgdev
+              echo "FEATURES=\"\${FEATURES} buildpkg\"" >> /etc/portage/make.conf
+              emerge --quiet -k dev-util/pkgdev
               pkgcheck scan -k,-MissingManifest --cache-dir /tmp/pkgcheck-cache --verbose /var/db/repos/omarchy
               gentoo-resolve
             '
@@ -89,7 +107,12 @@ jobs:
   smoke-emerge:
     # Real emerge of one rotating package, from master only (see trust model
     # above): an ebuild's dependency closure can still be a full desktop
-    # stack, and stage3 builds it from source.
+    # stack, and stage3 builds it from source. Build caches (distfiles,
+    # locally built binary packages, ccache) keep that affordable: most
+    # nights only the drift actually compiles. The packages in the cache are
+    # self-built by earlier runs of this same pipeline, never fetched from a
+    # binhost. Dependencies may install from the binpkg cache; the smoke atom
+    # itself is always merged from source so the signal stays real.
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 350
@@ -100,10 +123,23 @@ jobs:
           persist-credentials: false
           submodules: recursive
 
+      - name: Restore build caches (distfiles, binpkgs, ccache)
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            .build-cache/distfiles
+            .build-cache/bin-pkgs
+            .build-cache/ccache
+          key: omarchy-build-v1-${{ github.run_id }}-${{ github.job }}
+          restore-keys: omarchy-build-v1-
+
       - name: Manifest, digest-verify, and emerge the package of the day (stage3)
         run: |
           docker run --rm \
             -v "$PWD/gentoo:/var/db/repos/omarchy" \
+            -v "$PWD/.build-cache/distfiles:/var/cache/distfiles" \
+            -v "$PWD/.build-cache/bin-pkgs:/var/cache/binpkgs" \
+            -v "$PWD/.build-cache/ccache:/var/cache/ccache" \
             gentoo/stage3 bash -c '
               set -eu
               command -v getuto >/dev/null && getuto || true
@@ -112,7 +148,10 @@ jobs:
               mkdir -p /etc/portage/repos.conf
               ln -sf /usr/share/portage/config/repos.conf /etc/portage/repos.conf/gentoo.conf
               printf "[omarchy]\nlocation = /var/db/repos/omarchy\nmasters = gentoo\nauto-sync = off\n" > /etc/portage/repos.conf/omarchy.conf
-              emerge --quiet dev-util/pkgdev
+              echo "MAKEOPTS=\"-j4\"" >> /etc/portage/make.conf
+              echo "FEATURES=\"\${FEATURES} buildpkg ccache\"" >> /etc/portage/make.conf
+              echo "CCACHE_DIR=\"/var/cache/ccache\"" >> /etc/portage/make.conf
+              emerge --quiet -k dev-util/ccache dev-util/pkgdev
               cd /var/db/repos/omarchy
               pkgdev manifest --force
               pkgcheck scan --cache-dir /tmp/pkgcheck-cache --verbose /var/db/repos/omarchy
@@ -124,30 +163,74 @@ jobs:
               pick=$(( $(date +%j) % ${#atoms[@]} ))
               atom="${atoms[$pick]}"
               echo "smoke emerging ${atom} (${pick} of $((${#atoms[@]} - 1)))"
-              FEATURES="-network-sandbox -sandbox" ACCEPT_LICENSE="* -@EULA" ACCEPT_KEYWORDS="~amd64" emerge --ask n --verbose y "${atom}"
+              smoke_deps() {
+                CONFIG_PROTECT="-*" FEATURES="-network-sandbox -sandbox buildpkg ccache" ACCEPT_LICENSE="* -@EULA" ACCEPT_KEYWORDS="~amd64" \
+                  emerge --verbose -k --onlydeps --autounmask-write --autounmask-continue "${atom}"
+              }
+              smoke_atom() {
+                CONFIG_PROTECT="-*" FEATURES="-network-sandbox -sandbox buildpkg ccache" ACCEPT_LICENSE="* -@EULA" ACCEPT_KEYWORDS="~amd64" \
+                  emerge --verbose --autounmask-write --autounmask-continue "${atom}"
+              }
+              if ! smoke_deps; then
+                # A tree-side keyword window (the snapshot of the day ships a
+                # dependency only as keywordless) surfaces as a "(masked by:"
+                # list. Accept exactly those released versions and retry once
+                # - do not blanket-accept **, or autounmask drags every 9999
+                # live ebuild into the graph. A second failure is a real
+                # failure. NOTE: no apostrophes below - this whole script
+                # sits inside one single-quoted bash -c argument.
+                masked=$(FEATURES="-network-sandbox -sandbox" ACCEPT_LICENSE="* -@EULA" ACCEPT_KEYWORDS="~amd64" \
+                  emerge --pretend --quiet "${atom}" 2>&1 \
+                  | sed -n "s/^- \([^ ]*\)::gentoo (masked by:.*/\1/p" \
+                  | grep -v -- -9999 || true)
+                if [[ -z "${masked}" ]]; then
+                  exit 1
+                fi
+                echo "tree-side keyword window; accepting keywordless: ${masked}"
+                mkdir -p /etc/portage/package.accept_keywords
+                printf "%s\n" "${masked}" | sed "s/^/=/; s/$/ **/" \
+                  > /etc/portage/package.accept_keywords/smoke-tree-window
+                smoke_deps
+              fi
+              smoke_atom
             '
+
+      - name: Save build caches
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            .build-cache/distfiles
+            .build-cache/bin-pkgs
+            .build-cache/ccache
+          key: omarchy-build-v1-${{ github.run_id }}-${{ github.job }}
 
   sync-check:
     # Ebuild drift from the Arch recipes: upstream's automation bumps
     # PKGBUILDs; this check notices when the co-maintained ebuilds lag and
     # fails so the report job files an issue (an agent or maintainer then
     # runs bin/sync-gentoo <package>, which does the rename). Needs vercmp,
-    # so an Arch container; needs a plain clone because the JS checkout
-    # actions require node, which base-devel does not ship.
+    # so an Arch container, driven from the host like every other gate:
+    # base-devel ships neither git (so the container cannot clone itself)
+    # nor node (so the JS checkout actions cannot run inside it either).
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    container:
-      image: archlinux:base-devel
     steps:
-      - name: Clone repository
-        run: git clone --recurse-submodules --shallow-submodules --depth 1 \
-            "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git" /workspace
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: recursive
 
-      - name: Check ebuild drift
+      - name: Check ebuild drift (Arch container)
         run: |
-          set -eu
-          cd /workspace
-          bin/sync-gentoo --check
+          docker run --rm \
+            -v "$PWD:/workspace" \
+            archlinux:base-devel bash -c '
+              set -eu
+              cd /workspace
+              bin/sync-gentoo --check
+            '
 
   coverage:
     # File/update the tracking issue that IS the porting backlog: the unported
@@ -225,6 +308,8 @@ jobs:
           docker run --rm \
             -v "$PWD/gentoo:/var/db/repos/omarchy" \
             -v "$PWD/overlay-staging:/staging" \
+            -v "$PWD/.build-cache/distfiles:/var/cache/distfiles" \
+            -v "$PWD/.build-cache/bin-pkgs:/var/cache/binpkgs" \
             gentoo/stage3 bash -c '
               set -eu
               command -v getuto >/dev/null && getuto || true
@@ -233,7 +318,8 @@ jobs:
               mkdir -p /etc/portage/repos.conf
               ln -sf /usr/share/portage/config/repos.conf /etc/portage/repos.conf/gentoo.conf
               printf "[omarchy]\nlocation = /var/db/repos/omarchy\nmasters = gentoo\nauto-sync = off\n" > /etc/portage/repos.conf/omarchy.conf
-              emerge --quiet dev-util/pkgdev
+              echo "FEATURES=\"\${FEATURES} buildpkg\"" >> /etc/portage/make.conf
+              emerge --quiet -k dev-util/pkgdev
               cd /var/db/repos/omarchy
               pkgdev manifest --force
               rm -rf /var/db/repos/omarchy/metadata/md5-cache
