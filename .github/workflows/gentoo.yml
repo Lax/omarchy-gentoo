@@ -147,7 +147,7 @@ jobs:
                 find /var/db/repos/omarchy -name "*.ebuild" -not -path "*/metadata/*" -printf "%h\n" \
                   | sort -u | sed "s|/var/db/repos/omarchy/||"
               )
-              (( ${#atoms[@]} > 0 )) || { echo "overlay is empty"; exit 0; }
+              (( ${#atoms[@]} > 0 )) || { echo "FATAL: no ebuilds found - the overlay did not reach this container (mount or checkout problem)"; exit 1; }
               pick=$(( $(date +%j) % ${#atoms[@]} ))
               atom="${atoms[$pick]}"
               echo "smoke emerging ${atom} (${pick} of $((${#atoms[@]} - 1)))"
