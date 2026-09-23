@@ -20,7 +20,7 @@ set -euo pipefail
 BUILD_ROOT=$(realpath "${BASH_SOURCE[0]%/*}/..")
 # Two roots: BUILD_ROOT is this management repo; upstream/ is the
 # pinned submodule whose PKGBUILDs our tooling reconciles against.
-UPSTREAM_ROOT="${OMARCHY_UPSTREAM:-$BUILD_ROOT/upstream}"
+UPSTREAM_ROOT="${OMARCHY_UPSTREAM:-$BUILD_ROOT/omarchy-pkgs}"
 PKGBUILDS_DIR="${PKGBUILDS_DIR:-$UPSTREAM_ROOT/pkgbuilds}"
 [[ -f "$UPSTREAM_ROOT/helpers/package-metadata.sh" ]] || {
 	echo "error: upstream submodule not checked out under $UPSTREAM_ROOT; run: git submodule update --init" >&2
@@ -93,7 +93,7 @@ cmd_list_open() {
 print_brief() {
   local package="$1"
   local pkgdir="$PKGBUILDS_DIR/$package"
-  [[ -d "$pkgdir" ]] || { echo "error: no directory upstream/pkgbuilds/$package in the submodule" >&2; return 1; }
+  [[ -d "$pkgdir" ]] || { echo "error: no directory omarchy-pkgs/pkgbuilds/$package in the submodule" >&2; return 1; }
 
   local row category gname
   row=$(gentoo_row "$package")
@@ -112,7 +112,7 @@ print_brief() {
 # Task: port Arch package "$package" to the Gentoo overlay
 
 You are working in the omarchy-gentoo repository; the Arch recipes
-you are porting FROM live in the pinned upstream/ submodule. Your job is to add
+you are porting FROM live in the pinned omarchy-pkgs/ submodule. Your job is to add
 "$package" to the Gentoo ebuild overlay in gentoo/, translating the Arch
 recipe faithfully. Everything you need is below; the verification gates are
 at the bottom and they are the same ones CI runs.
@@ -148,7 +148,7 @@ at the bottom and they are the same ones CI runs.
 - Files:   gentoo/$category/$gname/files/ (desktop entries, icons, helpers)
 - Binpkg:  $(is_binpkg "$package" && echo yes || echo no)
 
-## Source recipe: upstream/pkgbuilds/$package/PKGBUILD
+## Source recipe: omarchy-pkgs/pkgbuilds/$package/PKGBUILD
 
 \`\`\`bash
 $(cat "$pkgdir/PKGBUILD")

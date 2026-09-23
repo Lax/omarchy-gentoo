@@ -29,7 +29,7 @@ set -euo pipefail
 BUILD_ROOT=$(realpath "${BASH_SOURCE[0]%/*}/..")
 # Two roots: BUILD_ROOT is this management repo; upstream/ is the
 # pinned submodule whose PKGBUILDs our tooling reconciles against.
-UPSTREAM_ROOT="${OMARCHY_UPSTREAM:-$BUILD_ROOT/upstream}"
+UPSTREAM_ROOT="${OMARCHY_UPSTREAM:-$BUILD_ROOT/omarchy-pkgs}"
 PKGBUILDS_DIR="${PKGBUILDS_DIR:-$UPSTREAM_ROOT/pkgbuilds}"
 [[ -f "$UPSTREAM_ROOT/helpers/package-metadata.sh" ]] || {
 	echo "error: upstream submodule not checked out under $UPSTREAM_ROOT; run: git submodule update --init" >&2
@@ -205,18 +205,18 @@ cmd_self_test() {
 	# the fixture gets a copy of the whole tool surface it sources.
 	local fixture
 	fixture=$(mktemp -d)
-	mkdir -p "$fixture/bin" "$fixture/helpers" "$fixture/upstream/pkgbuilds/fixture" \
-		"$fixture/upstream/helpers" "$fixture/gentoo/app-misc/fixture"
+	mkdir -p "$fixture/bin" "$fixture/helpers" "$fixture/omarchy-pkgs/pkgbuilds/fixture" \
+		"$fixture/omarchy-pkgs/helpers" "$fixture/gentoo/app-misc/fixture"
 	for f in gentoo.sh gentoo-deps.map gentoo-packages.tsv; do
 		cp "$BUILD_ROOT/helpers/$f" "$fixture/helpers/"
 	done
-	cp "$UPSTREAM_ROOT/helpers/package-metadata.sh" "$fixture/upstream/helpers/"
+	cp "$UPSTREAM_ROOT/helpers/package-metadata.sh" "$fixture/omarchy-pkgs/helpers/"
 	cp "${BASH_SOURCE[0]}" "$fixture/bin/sync-gentoo"
 	printf '%s\n' "fixture	app-misc	fixture" >>"$fixture/helpers/gentoo-packages.tsv"
 	printf '%s\n' \
 		"pkgname=fixture" "pkgver=1.0.0" "pkgrel=1" "arch=('any')" \
 		"license=('MIT')" "url='https://example.com'" \
-		>"$fixture/upstream/pkgbuilds/fixture/PKGBUILD"
+		>"$fixture/omarchy-pkgs/pkgbuilds/fixture/PKGBUILD"
 
 	local ebuild="$fixture/gentoo/app-misc/fixture/fixture-1.0.0.ebuild"
 	printf '%s\n' \
@@ -237,7 +237,7 @@ cmd_self_test() {
 	# these commands are EXPECTED to fail, and the self-test runs set -e.)
 	printf '%s\n' "pkgname=fixture" "pkgver=1.1.0" "pkgrel=1" "arch=('any')" \
 		"license=('MIT')" "url='https://example.com'" \
-		>"$fixture/upstream/pkgbuilds/fixture/PKGBUILD"
+		>"$fixture/omarchy-pkgs/pkgbuilds/fixture/PKGBUILD"
 	rc=0
 	(cd "$fixture" && ./bin/sync-gentoo --check >/dev/null 2>&1) || rc=$?
 	check "drift exits 1" "1" "$rc"
@@ -254,7 +254,7 @@ cmd_self_test() {
 		# Recipe older than the ebuild: left alone.
 		printf '%s\n' "pkgname=fixture" "pkgver=0.9.0" "pkgrel=1" "arch=('any')" \
 			"license=('MIT')" "url='https://example.com'" \
-			>"$fixture/upstream/pkgbuilds/fixture/PKGBUILD"
+			>"$fixture/omarchy-pkgs/pkgbuilds/fixture/PKGBUILD"
 		(cd "$fixture" && ./bin/sync-gentoo fixture >/dev/null 2>&1)
 		check "older recipe does not downgrade" "yes" \
 			"$([[ -f "$fixture/gentoo/app-misc/fixture/fixture-1.1.0.ebuild" ]] && echo yes || echo no)"

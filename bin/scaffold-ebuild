@@ -20,7 +20,7 @@ set -euo pipefail
 BUILD_ROOT=$(realpath "${BASH_SOURCE[0]%/*}/..")
 # Two roots: BUILD_ROOT is this management repo; upstream/ is the
 # pinned submodule whose PKGBUILDs our tooling reconciles against.
-UPSTREAM_ROOT="${OMARCHY_UPSTREAM:-$BUILD_ROOT/upstream}"
+UPSTREAM_ROOT="${OMARCHY_UPSTREAM:-$BUILD_ROOT/omarchy-pkgs}"
 PKGBUILDS_DIR="${PKGBUILDS_DIR:-$UPSTREAM_ROOT/pkgbuilds}"
 [[ -f "$UPSTREAM_ROOT/helpers/package-metadata.sh" ]] || {
 	echo "error: upstream submodule not checked out under $UPSTREAM_ROOT; run: git submodule update --init" >&2
@@ -294,11 +294,11 @@ cmd_self_test() {
   # production code paths against the fixture tree.
   local fixture
   fixture=$(mktemp -d)
-  mkdir -p "$fixture/upstream/pkgbuilds/fixture-bin" "$fixture/upstream/helpers" \
+  mkdir -p "$fixture/omarchy-pkgs/pkgbuilds/fixture-bin" "$fixture/omarchy-pkgs/helpers" \
     "$fixture/gentoo" "$fixture/helpers" "$fixture/bin"
   cp "$DEPS_MAP" "$fixture/helpers/" && cp "$PACKAGES_TSV" "$fixture/helpers/"
   cp "$BUILD_ROOT/helpers/gentoo.sh" "$fixture/helpers/"
-  cp "$UPSTREAM_ROOT/helpers/package-metadata.sh" "$fixture/upstream/helpers/"
+  cp "$UPSTREAM_ROOT/helpers/package-metadata.sh" "$fixture/omarchy-pkgs/helpers/"
   cp "${BASH_SOURCE[0]}" "$fixture/bin/scaffold-ebuild"
   chmod +x "$fixture/bin/scaffold-ebuild"
   printf '%s\n' \
@@ -308,7 +308,7 @@ cmd_self_test() {
     "depends=('gtk3' 'glibc' 'libtotally-unknown')" \
     "source_x86_64=(\"fixture-\${pkgver}-x86_64.tar.gz::https://example.com/dl/fixture-linux-x64.tar.gz\")" \
     "package() {" "  install -Dm755 fixture \"\${pkgdir}/usr/bin/fixture\"" "}" \
-    >"$fixture/upstream/pkgbuilds/fixture-bin/PKGBUILD"
+    >"$fixture/omarchy-pkgs/pkgbuilds/fixture-bin/PKGBUILD"
   printf '%s\n' "fixture-bin	app-misc	fixture-bin" >>"$fixture/helpers/gentoo-packages.tsv"
   (
     cd "$fixture" &&

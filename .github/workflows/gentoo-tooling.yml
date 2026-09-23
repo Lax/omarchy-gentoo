@@ -10,7 +10,7 @@ on:
   pull_request:
     paths:
       - gentoo/**
-      - upstream
+      - omarchy-pkgs
       - helpers/gentoo-*
       - bin/scaffold-ebuild
       - bin/ai-port
@@ -21,7 +21,7 @@ on:
     branches: [master]
     paths:
       - gentoo/**
-      - upstream
+      - omarchy-pkgs
       - helpers/gentoo-*
       - bin/scaffold-ebuild
       - bin/ai-port

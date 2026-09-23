@@ -2,7 +2,7 @@
 # Columns: <arch-pkgname> <category> <gentoo-pkgname>, tab separated.
 # A package ships a Gentoo ebuild iff it is listed here AND
 # gentoo/<category>/<gentoo-pkgname>/ exists; bin/sync-gentoo reads this
-# table to reconcile ebuilds with the PKGBUILDs in the upstream/ submodule.
+# table to reconcile ebuilds with the PKGBUILDs in the omarchy-pkgs/ submodule.
 #
 # Gentoo package names drop Arch-isms where Gentoo convention is firm:
 # -git suffixes (sources are pinned tarballs, not live git)

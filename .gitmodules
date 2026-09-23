@@ -1,4 +1,4 @@
-[submodule "upstream"]
-	path = upstream
+[submodule "omarchy-pkgs"]
+	path = omarchy-pkgs
 	url = https://github.com/omacom/omarchy-pkgs
 	branch = master

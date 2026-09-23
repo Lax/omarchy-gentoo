@@ -19,7 +19,7 @@ on:
   pull_request:
     paths:
       - gentoo/**
-      - upstream
+      - omarchy-pkgs
       - helpers/gentoo-*
       - bin/scaffold-ebuild
       - bin/ai-port
@@ -30,7 +30,7 @@ on:
     branches: [master]
     paths:
       - gentoo/**
-      - upstream
+      - omarchy-pkgs
       - helpers/gentoo-*
       - bin/scaffold-ebuild
       - bin/ai-port
@@ -241,7 +241,7 @@ jobs:
             '
           # gitlink noise never reaches the mirror; the submodule pointer is
           # management-repo state, not overlay content.
-          rm -rf "$PWD/overlay-staging/upstream"
+          rm -rf "$PWD/overlay-staging/omarchy-pkgs"
 
       - name: Commit and push the overlay branch
         env:

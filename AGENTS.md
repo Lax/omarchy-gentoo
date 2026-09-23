@@ -11,11 +11,11 @@ it tells you which gate proves your work.
 A Gentoo ebuild overlay for Omarchy packages, delivered as the `overlay`
 branch (whose tree root IS the overlay; CI mirrors it on every merge to
 master). The Arch recipes it is derived from are **not** part of this
-repository: they live in the pinned `upstream/` submodule
-(omacom/omarchy-pkgs). This is a two-root project:
+repository: they live in the pinned `omarchy-pkgs/` submodule
+(omacom/omarchy-pkgs, tracked to its master branch). This is a two-root project:
 
 - `BUILD_ROOT` — this repository (overlay, tooling, docs, workflows).
-- `upstream/` — the submodule; `upstream/pkgbuilds/<name>/PKGBUILD` is the
+- `upstream/` — the submodule; `omarchy-pkgs/pkgbuilds/<name>/PKGBUILD` is the
   source of truth for what our ebuilds must match. Override its location
   with `OMARCHY_UPSTREAM` for odd checkouts.
 
@@ -25,8 +25,9 @@ tooling cannot disagree with itself.
 ## Repository layout
 
 - `gentoo/` — the overlay. Never commit `Manifest` files; CI generates them.
-- `upstream/` — submodule. Update it via the `Upstream sync` automation, or
-  by hand: `git submodule update --remote upstream`.
+- `omarchy-pkgs/` — submodule (named after the upstream repo). Update it
+  via the `Upstream sync` automation, or by hand:
+  `git submodule update --remote omarchy-pkgs`.
 - `helpers/gentoo-packages.tsv` — which Arch packages have an ebuild, and
   where (`arch-name → category → gentoo-name`).
 - `helpers/gentoo-deps.map` — Arch dependency → Gentoo atom mapping.
@@ -90,7 +91,7 @@ blocker in `helpers/gentoo-skip.tsv` instead.
 Normally `Upstream sync` does this. By hand:
 
 ```
-git submodule update --remote upstream
+git submodule update --remote omarchy-pkgs
 bin/sync-gentoo <package>      # or with no arguments, every table row
 bin/sync-gentoo --check        # report-only; exits 1 on drift
 ```

@@ -2,7 +2,7 @@
 
 Omarchy packages for Gentoo Linux, as a source-based ebuild overlay.
 
-The Arch recipes live in the pinned [`upstream/` submodule](https://github.com/omacom/omarchy-pkgs); this repository turns them into ebuilds, validates them in a Gentoo stage3 container, and publishes the result as the `overlay` branch — which is what Portage users sync.
+The Arch recipes live in the pinned [`omarchy-pkgs/` submodule](https://github.com/omacom/omarchy-pkgs); this repository turns them into ebuilds, validates them in a Gentoo stage3 container, and publishes the result as the `overlay` branch — which is what Portage users sync.
 
 Maintained by automation and coding agents. `AGENTS.md` is the playbook; `docs/gentoo.md` is the full contract (translation rules, scope, the self-managed loop).
 
@@ -23,7 +23,7 @@ Then `emaint sync -r omarchy` and `emerge <category>/<package>`. Keyword `~amd64
 ## Layout
 
 ```
-upstream/      submodule: omacom/omarchy-pkgs (the Arch recipes, pinned)
+omarchy-pkgs/  submodule: omacom/omarchy-pkgs (the Arch recipes, pinned)
 gentoo/        the ebuild overlay (mirrored to the `overlay` branch)
 bin/           ai-port, sync-gentoo, scaffold-ebuild, gentoo-resolve
 helpers/       conversion rules and ported/skipped bookkeeping

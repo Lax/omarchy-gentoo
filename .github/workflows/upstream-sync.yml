@@ -49,9 +49,9 @@ jobs:
         run: |
           set -eu
           cd /work
-          before=$(git submodule status upstream | awk '{print $1}')
-          git submodule update --remote upstream
-          after=$(git submodule status upstream | awk '{print $1}')
+          before=$(git submodule status omarchy-pkgs | awk '{print $1}')
+          git submodule update --remote omarchy-pkgs
+          after=$(git submodule status omarchy-pkgs | awk '{print $1}')
           if [[ "$before" == "$after" ]]; then
             echo "upstream pin is already at the tip"
             exit 0
@@ -59,7 +59,7 @@ jobs:
           echo "pin: ${before} -> ${after}"
           bin/sync-gentoo | tee /tmp/reconcile.log
           git add -A
-          git commit --quiet -m "upstream: bump pin to $(git submodule status upstream | awk '{print substr($1, 1, 12)}'), reconcile ebuilds"
+          git commit --quiet -m "upstream: bump pin to $(git submodule status omarchy-pkgs | awk '{print substr($1, 1, 12)}'), reconcile ebuilds"
           git push --quiet origin master
           echo "pushed $(git rev-parse --short HEAD)"
           if grep -qE '^skip |FAIL |by hand' /tmp/reconcile.log; then
