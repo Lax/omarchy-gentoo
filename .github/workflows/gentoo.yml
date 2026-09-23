@@ -63,8 +63,9 @@ jobs:
     # ships none) and drives the container through docker run - the same
     # pattern upstream's test.yml uses for its Arch container. No distfiles
     # are fetched here; the nightly job owns Manifest generation. The build
-    # caches are restored read-only here (no save): the nightly smoke job
-    # populates and refreshes the pool.
+    # caches are GitHub-hosted pool state now that smoke runs self-hosted:
+    # lint and mirror restore and re-save them, so repeated pushes reuse the
+    # pkgdev binpkg instead of rebuilding it.
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
@@ -104,17 +105,31 @@ jobs:
               gentoo-resolve
             '
 
+      - name: Save build caches
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            .build-cache/distfiles
+            .build-cache/bin-pkgs
+          key: omarchy-build-v1-${{ github.run_id }}-${{ github.job }}
+
   smoke-emerge:
     # Real emerge of one rotating package, from master only (see trust model
     # above): an ebuild's dependency closure can still be a full desktop
-    # stack, and stage3 builds it from source. Build caches (distfiles,
-    # locally built binary packages, ccache) keep that affordable: most
-    # nights only the drift actually compiles. The packages in the cache are
-    # self-built by earlier runs of this same pipeline, never fetched from a
-    # binhost. Dependencies may install from the binpkg cache; the smoke atom
-    # itself is always merged from source so the signal stays real.
+    # stack, and stage3 builds it from source. This is the one long-running
+    # job, so it runs on the maintainer's self-hosted runner (label
+    # omarchy-smoke) - hours of compilation stay off the GitHub-hosted
+    # quota, and the build caches are plain persistent volumes on that
+    # machine (distfiles, locally built binary packages, ccache), written
+    # and read only by this same pipeline - never a binhost. The job is
+    # schedule/dispatch triggered only, never pull_request, so fork code
+    # cannot reach the self-hosted machine. Dependencies may install from
+    # the binpkg cache; the smoke atom itself always merges from source so
+    # the signal stays real. The runner's stage3 fetches through the local
+    # proxy and the aliyun mirror, which is why they are baked into
+    # make.conf here.
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, omarchy-smoke]
     timeout-minutes: 350
     steps:
       - name: Checkout repository
@@ -123,23 +138,14 @@ jobs:
           persist-credentials: false
           submodules: recursive
 
-      - name: Restore build caches (distfiles, binpkgs, ccache)
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            .build-cache/distfiles
-            .build-cache/bin-pkgs
-            .build-cache/ccache
-          key: omarchy-build-v1-${{ github.run_id }}-${{ github.job }}
-          restore-keys: omarchy-build-v1-
-
       - name: Manifest, digest-verify, and emerge the package of the day (stage3)
         run: |
-          docker run --rm \
+          mkdir -p /var/tmp/omarchy-runner-cache/distfiles /var/tmp/omarchy-runner-cache/binpkgs /var/tmp/omarchy-runner-cache/ccache
+          docker run --rm --network host \
             -v "$PWD/gentoo:/var/db/repos/omarchy" \
-            -v "$PWD/.build-cache/distfiles:/var/cache/distfiles" \
-            -v "$PWD/.build-cache/bin-pkgs:/var/cache/binpkgs" \
-            -v "$PWD/.build-cache/ccache:/var/cache/ccache" \
+            -v /var/tmp/omarchy-runner-cache/distfiles:/var/cache/distfiles \
+            -v /var/tmp/omarchy-runner-cache/binpkgs:/var/cache/binpkgs \
+            -v /var/tmp/omarchy-runner-cache/ccache:/var/cache/ccache \
             gentoo/stage3 bash -c '
               set -eu
               command -v getuto >/dev/null && getuto || true
@@ -152,6 +158,9 @@ jobs:
               echo "LLVM_TARGETS=\"X86 AMDGPU\"" >> /etc/portage/make.conf
               echo "FEATURES=\"\${FEATURES} buildpkg ccache\"" >> /etc/portage/make.conf
               echo "CCACHE_DIR=\"/var/cache/ccache\"" >> /etc/portage/make.conf
+              echo "GENTOO_MIRRORS=\"https://mirrors.aliyun.com/gentoo/\"" >> /etc/portage/make.conf
+              echo "http_proxy=\"http://127.0.0.1:64540\"" >> /etc/portage/make.conf
+              echo "https_proxy=\"http://127.0.0.1:64540\"" >> /etc/portage/make.conf
               emerge --quiet -k dev-util/ccache dev-util/pkgdev
               cd /var/db/repos/omarchy
               pkgdev manifest --force
@@ -195,16 +204,6 @@ jobs:
               fi
               smoke_atom
             '
-
-      - name: Save build caches
-        if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            .build-cache/distfiles
-            .build-cache/bin-pkgs
-            .build-cache/ccache
-          key: omarchy-build-v1-${{ github.run_id }}-${{ github.job }}
 
   sync-check:
     # Ebuild drift from the Arch recipes: upstream's automation bumps
@@ -326,9 +325,14 @@ jobs:
               rm -rf /var/db/repos/omarchy/metadata/md5-cache
               cp -a /var/db/repos/omarchy/. /staging/
             '
-          # gitlink noise never reaches the mirror; the submodule pointer is
-          # management-repo state, not overlay content.
-          rm -rf "$PWD/overlay-staging/omarchy-pkgs"
+
+      - name: Save build caches
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            .build-cache/distfiles
+            .build-cache/bin-pkgs
+          key: omarchy-build-v1-${{ github.run_id }}-${{ github.job }}
 
       - name: Commit and push the overlay branch
         env:
@@ -337,6 +341,9 @@ jobs:
           set -eu
           git config --global user.name "omarchy-gentoo-ci"
           git config --global user.email "hello@omarchy.org"
+          # gitlink noise never reaches the mirror; the submodule pointer is
+          # management-repo state, not overlay content.
+          rm -rf "$PWD/overlay-staging/omarchy-pkgs"
 
           # Fast-forward history when the overlay branch exists, start it
           # when it does not; then replace the tree wholesale with the
