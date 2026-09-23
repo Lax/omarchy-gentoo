@@ -1,0 +1,35 @@
+# Arch package name -> Gentoo overlay location.
+# Columns: <arch-pkgname> <category> <gentoo-pkgname>, tab separated.
+# A package ships a Gentoo ebuild iff it is listed here AND
+# gentoo/<category>/<gentoo-pkgname>/ exists; bin/sync-gentoo reads this
+# table to reconcile ebuilds with the PKGBUILDs in the upstream/ submodule.
+#
+# Gentoo package names drop Arch-isms where Gentoo convention is firm:
+# -git suffixes (sources are pinned tarballs, not live git)
+# ttf- prefixes on fonts
+# names that merely repeat the category
+1password	app-admin	1password
+1password-cli	app-admin	1password-cli
+bun-bin	dev-util	bun-bin
+claude-code	app-misc	claude-code
+cursor-bin	dev-util	cursor-bin
+hyprshade	gui-wm	hyprshade
+libretro-database-git	games-emulation	libretro-database
+lmstudio-bin	app-misc	lmstudio-bin
+nordvpn-bin	net-vpn	nordvpn-bin
+omazed	app-misc	omazed
+omaspeak-bin	app-accessibility	omaspeak-bin
+omawake-bin	app-accessibility	omawake-bin
+omarchy-audio-tuner	media-sound	omarchy-audio-tuner
+omarchy-billboard-generator	media-gfx	omarchy-billboard-generator
+omarchy-emacs	app-editors	omarchy-emacs
+omarchy-fish	app-shells	omarchy-fish
+omarchy-zsh	app-shells	omarchy-zsh
+openai-codex-bin	dev-util	openai-codex-bin
+python-terminaltexteffects	dev-python	python-terminaltexteffects
+retroarch-joypad-autoconfig-git	games-emulation	retroarch-joypad-autoconfig
+tobi-try	dev-util	try
+ttf-ia-writer	media-fonts	ia-writer
+ttf-jetbrains-mono-nerd-basic	media-fonts	jetbrains-mono-nerd-basic
+ufw-docker	net-firewall	ufw-docker
+xdg-terminal-exec	x11-misc	xdg-terminal-exec

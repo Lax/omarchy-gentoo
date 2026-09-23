@@ -1,0 +1,83 @@
+# Arch dependency name -> Gentoo dependency atom.
+# Used by bin/scaffold-ebuild and reviewed by hand when ebuilds are finished.
+#
+# Special values:
+#   DROP            the dependency is part of Gentoo's @system / baseline
+#                   toolchain (glibc, gcc-libs, coreutils, ...) and is omitted
+#   MANUAL:<note>   no mechanical mapping; the ebuild must decide. Currently
+#                   unresolved MANUAL entries are printed as warnings during
+#                   scaffolding so they cannot be silently dropped.
+#
+# Keep entries sorted by Arch name. A versioned Arch dependency ("nodejs>=22")
+# must either get its own literal entry here or it falls through to MANUAL.
+
+alsa-lib				media-libs/alsa-lib
+alsa-utils				media-sound/alsa-utils
+apache-utilities		DROP
+at-spi2-atk				app-accessibility/at-spi2-core
+bat						sys-apps/bat
+bash					app-shells/bash
+brotli					app-arch/brotli
+chromium				www-client/chromium
+click					dev-python/click
+coreutils				DROP
+desktop-file-utils		dev-util/desktop-file-utils
+docker					app-containers/docker
+dvd+rw-tools			app-cdr/dvd+rw-tools
+emacs-wayland			app-editors/emacs[pgtk]
+eza						sys-apps/eza
+fd						sys-apps/fd
+ffmpeg					media-video/ffmpeg
+fish					app-shells/fish
+fuse2					sys-fs/fuse:0
+fzf						app-shells/fzf
+glibc					DROP
+gcc-libs				DROP
+git						dev-vcs/git
+gtk3					x11-libs/gtk+:3
+gtk4					gui-libs/gtk
+hicolor-icon-theme		x11-themes/hicolor-icon-theme
+hyprland				MANUAL:this tree does not package Hyprland (hyprshade installs but is inert without it)
+hunspell				app-text/hunspell
+libayatana-appindicator	dev-libs/libayatana-appindicator
+libayatana-indicator	dev-libs/libayatana-indicator
+libcurl-gnutls			MANUAL:no Gentoo provider ships libcurl-gnutls.so.4; needs a dedicated compat package (blocks media-sound/spotify)
+libgtk-3.so=0			x11-libs/gtk+:3
+libpulse				media-libs/libpulse
+libsm					x11-libs/libSM
+libxkbfile				x11-libs/libxkbfile
+libxss					x11-libs/libXScrnSaver
+libzip					dev-libs/libzip
+lsp-plugins-lv2			media-libs/lsp-plugins
+mesa					media-libs/mesa
+mise					MANUAL:not in this tree; available in GURU (shipped packages note it in pkg_postinst)
+more-itertools			dev-python/more-itertools
+mpv						media-video/mpv
+neovim					app-editors/neovim
+neovim>=0.9.0			>=app-editors/neovim-0.9.0
+nodejs					net-libs/nodejs
+nodejs>=22				>=net-libs/nodejs-22
+nss						dev-libs/nss
+openvpn					net-vpn/openvpn
+pacman					DROP
+python					dev-lang/python
+python-cffi				dev-python/cffi
+qt6-declarative			dev-qt/qtdeclarative
+qt6-multimedia			dev-qt/qtmultimedia
+quickshell				MANUAL:omarchy quickshell port not written yet
+retroarch				MANUAL:this tree does not package RetroArch (data packages install standalone)
+ripgrep					sys-apps/ripgrep
+ruby					dev-lang/ruby
+starship				app-shells/starship
+sudo					app-admin/sudo
+systemd					sys-apps/systemd
+ttf-liberation			media-fonts/liberation-fonts
+ufw						net-firewall/ufw
+util-linux				sys-apps/util-linux
+xdg-terminal-exec		x11-misc/xdg-terminal-exec
+xdg-utils				x11-misc/xdg-utils
+zlib					sys-libs/zlib
+zoxide					app-shells/zoxide
+zsh						app-shells/zsh
+zsh-syntax-highlighting	app-shells/zsh-syntax-highlighting
+omarchy					MANUAL:the omarchy meta package is not ported to Gentoo (wave 3+; needs desktop integration work)

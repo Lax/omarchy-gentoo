@@ -1,0 +1,320 @@
+#!/bin/bash
+# The AI-first porting loop for the Gentoo overlay.
+#
+# The repo's standing offer to any coding agent: here is everything you need
+# to port one package, here is the definition of done, and here is how to
+# verify your own work. Humans review the PR; the gates (bin/ai-port
+# --verify locally, .github/workflows/gentoo.yml in CI) are the same, so an
+# agent that passes locally passes CI.
+#
+# Usage:
+#   ai-port <package>              Print a complete task brief for <package>
+#                                  (pipe it to any agent: bin/ai-port foo | claude -p)
+#   ai-port --run <package>        Feed the brief to an agent CLI on PATH
+#                                  (claude, codex, aider) or $AI_PORT_CMD
+#   ai-port --verify <cat>/<pkg>   Run the local gates for one overlay package
+#   ai-port --list-open            Print the unported queue (what an agent
+#                                  should port next; nightly CI files this)
+#   ai-port --self-test
+set -euo pipefail
+BUILD_ROOT=$(realpath "${BASH_SOURCE[0]%/*}/..")
+# Two roots: BUILD_ROOT is this management repo; upstream/ is the
+# pinned submodule whose PKGBUILDs our tooling reconciles against.
+UPSTREAM_ROOT="${OMARCHY_UPSTREAM:-$BUILD_ROOT/upstream}"
+PKGBUILDS_DIR="${PKGBUILDS_DIR:-$UPSTREAM_ROOT/pkgbuilds}"
+[[ -f "$UPSTREAM_ROOT/helpers/package-metadata.sh" ]] || {
+	echo "error: upstream submodule not checked out under $UPSTREAM_ROOT; run: git submodule update --init" >&2
+	exit 1
+}
+source "$UPSTREAM_ROOT/helpers/package-metadata.sh"
+source "$BUILD_ROOT/helpers/gentoo.sh"
+
+GENTOO_ROOT="$BUILD_ROOT/gentoo"
+PACKAGES_TSV="$BUILD_ROOT/helpers/gentoo-packages.tsv"
+SKIP_TSV="$BUILD_ROOT/helpers/gentoo-skip.tsv"
+
+# Packages that are binary repackages despite the name (mirrors
+# bin/scaffold-ebuild).
+is_binpkg() {
+  case "$1" in
+    *-bin | *-beta) return 0 ;;
+    1password | claude-code | cursor-bin | dropbox | minecraft-launcher | perplexity | spotify | sublime-text-4 | typora | visual-studio-code-bin) return 0 ;;
+  esac
+  return 1
+}
+
+package_class() {
+  local package="$1"
+  local pkgdir="$PKGBUILDS_DIR/$package"
+  local arches
+  [[ -d "$pkgdir" ]] || { echo unknown; return; }
+  arches=$(package_pkgbuild_var "$pkgdir" arch 2>/dev/null || true)
+  case " $arches " in
+    *" any "*)
+      if is_binpkg "$package"; then echo any+bin; else echo any; fi
+      return
+      ;;
+  esac
+  if is_binpkg "$package"; then
+    # In scope only when it builds for the published architectures.
+    case " $arches " in
+      *"x86_64"* | *"aarch64"*) echo bin ;;
+      *) echo unknown ;;
+    esac
+  else
+    echo wave3
+  fi
+}
+
+skip_class() {
+  awk -F'\t' -v key="$1" '$1 == key { print $2; exit }' "$SKIP_TSV"
+}
+
+gentoo_row() {
+  awk -F'\t' -v key="$1" '$1 == key { print $2 "\t" $3; exit }' "$PACKAGES_TSV"
+}
+
+cmd_list_open() {
+  local dir package class skip
+  for dir in "$PKGBUILDS_DIR"/*/; do
+    package=$(basename "$dir")
+    class=$(package_class "$package")
+    [[ "$class" == any || "$class" == bin || "$class" == any+bin ]] || continue
+    [[ -n "$(gentoo_row "$package")" ]] && continue
+    skip=$(skip_class "$package")
+    if [[ -n "$skip" ]]; then
+      printf '%-8s %-32s skipped: %s\n' "$class" "$package" "$(awk -F'\t' -v k="$package" '$1 == k { print $3 }' "$SKIP_TSV")"
+    else
+      printf '%-8s %-32s OPEN\n' "$class" "$package"
+    fi
+  done | sort
+}
+
+print_brief() {
+  local package="$1"
+  local pkgdir="$PKGBUILDS_DIR/$package"
+  [[ -d "$pkgdir" ]] || { echo "error: no directory upstream/pkgbuilds/$package in the submodule" >&2; return 1; }
+
+  local row category gname
+  row=$(gentoo_row "$package")
+  if [[ -n "$row" ]]; then
+    category=${row%%$'\t'*}
+    gname=${row#*$'\t'}
+  else
+    category="(pick a stock Gentoo category; add the row to helpers/gentoo-packages.tsv)"
+    gname="(add the row to helpers/gentoo-packages.tsv)"
+  fi
+
+  local aux
+  aux=$(find "$pkgdir" -maxdepth 1 -type f ! -name PKGBUILD -printf '%f\n' | sort | tr '\n' ' ')
+
+  cat <<BRIEF
+# Task: port Arch package "$package" to the Gentoo overlay
+
+You are working in the omarchy-gentoo repository; the Arch recipes
+you are porting FROM live in the pinned upstream/ submodule. Your job is to add
+"$package" to the Gentoo ebuild overlay in gentoo/, translating the Arch
+recipe faithfully. Everything you need is below; the verification gates are
+at the bottom and they are the same ones CI runs.
+
+## House rules (full playbook: docs/gentoo.md)
+
+1. Keep the Arch package name as the Gentoo package name (category per the
+   table below). Gentoo version rules: no epochs, pkgrel dropped, only
+   [A-Za-z0-9._] and a version must not have a dot-component starting with a
+   letter (Arch "1.2.r3" becomes "1.2_p3"-style suffixes).
+2. Every upstream URL that Arch left unpinned (floating branch tarballs,
+   "master" archives) must be pinned to a commit so a Manifest digest is
+   stable. Record the pin date in a comment.
+3. Binary repackages: RESTRICT="strip mirror". Vendor desktop/icon files go
+   into the ebuild's files/ directory. Never execute vendor installers at
+   emerge time; extract and install files.
+4. Arch .install post_install messages become pkg_postinst elog blocks;
+   pacman PreTransaction hooks become pkg_prerm calling a helper copied into
+   files/ (see gentoo/app-accessibility/omaspeak-bin for the pattern).
+5. Map dependencies with helpers/gentoo-deps.map; when the map has no row
+   and no Gentoo package exists, stop and record a blockers note in
+   helpers/gentoo-skip.tsv instead of guessing.
+6. Do NOT create Manifest files; CI generates them with pkgdev.
+7. Write metadata.xml with the omarchy maintainer block (copy from any
+   existing gentoo/*/metadata.xml), plus <upstream> remote-ids when known.
+8. Update helpers/gentoo-packages.tsv (and gentoo-skip.tsv when you skip a
+   package) as part of the change.
+
+## Target locations
+
+- Ebuild:  gentoo/$category/$gname/$gname-<version>.ebuild
+- Metadata: gentoo/$category/$gname/metadata.xml
+- Files:   gentoo/$category/$gname/files/ (desktop entries, icons, helpers)
+- Binpkg:  $(is_binpkg "$package" && echo yes || echo no)
+
+## Source recipe: upstream/pkgbuilds/$package/PKGBUILD
+
+\`\`\`bash
+$(cat "$pkgdir/PKGBUILD")
+\`\`\`
+
+## Auxiliary files in pkgbuilds/$package/
+
+${aux:-(none)}
+
+## Existing dependency map (helpers/gentoo-deps.map)
+
+$(grep -v '^#' "$BUILD_ROOT/helpers/gentoo-deps.map" | grep . || echo "(empty)")
+
+## Definition of done
+
+- [ ] Ebuild parses as bash: bash -n gentoo/$category/$gname/*.ebuild
+- [ ] bin/ai-port --verify $category/$gname passes (docker stage3 gates), or,
+      without docker: SRC_URI entries are pinned, KEYWORDS match the Arch
+      arch=() set, and every dependency is mapped or justified
+- [ ] helpers/gentoo-packages.tsv contains $package
+- [ ] No Manifest committed
+
+## Verify (run these; fix what they flag)
+
+  bash -n gentoo/$category/$gname/*.ebuild
+  bin/ai-port --verify $category/$gname      # needs docker
+BRIEF
+}
+
+cmd_verify() {
+  local target="$1" category=${1%%/*} gname=${1#*/}
+  local dir="$GENTOO_ROOT/$category/$gname"
+  [[ -d "$dir" ]] || { echo "error: $dir does not exist" >&2; return 1; }
+
+  local failed=0
+  local ebuild
+  for ebuild in "$dir"/*.ebuild; do
+    [[ -e "$ebuild" ]] || { echo "error: no ebuild in $dir" >&2; return 1; }
+    if bash -n "$ebuild"; then
+      echo "ok   bash -n $(basename "$ebuild")"
+    else
+      echo "FAIL bash -n $(basename "$ebuild")"
+      failed=1
+    fi
+  done
+  # A committed Manifest is a CI conflict: the mirror regenerates them.
+  if find "$dir" -name Manifest | grep -q .; then
+    echo "FAIL Manifest committed (CI generates these)"
+    failed=1
+  fi
+
+  if (( failed )); then
+    return 1
+  fi
+
+  if command -v docker >/dev/null 2>&1; then
+    echo "-- docker stage3 gates (same runner as CI: bin/gentoo-resolve) --"
+    docker run --rm \
+      -v "$BUILD_ROOT/gentoo:/var/db/repos/omarchy" \
+      -v "$BUILD_ROOT/bin/gentoo-resolve:/usr/local/bin/gentoo-resolve:ro" \
+      gentoo/stage3 bash -lc '
+        set -eu
+        command -v getuto >/dev/null && getuto || true
+        emerge-webrsync -q 2>/dev/null
+        [[ -d /var/db/repos/gentoo/profiles ]] || emerge-webrsync
+        [[ -d /var/db/repos/gentoo/profiles ]] || { echo "webrsync failed"; exit 1; }
+        mkdir -p /etc/portage/repos.conf
+        ln -sf /usr/share/portage/config/repos.conf /etc/portage/repos.conf/gentoo.conf
+        printf "[omarchy]\nlocation = /var/db/repos/omarchy\nmasters = gentoo\nauto-sync = off\n" > /etc/portage/repos.conf/omarchy.conf
+        emerge --quiet dev-util/pkgdev 2>/dev/null || true
+        pkgcheck scan -k,-MissingManifest --cache-dir /tmp/pkgcheck-cache --verbose "/var/db/repos/omarchy/'"$category"'/'"$gname"'"
+        gentoo-resolve
+        echo "gates passed for '"$category/$gname"'"
+      '
+  else
+    echo "docker not available; structural checks only"
+  fi
+}
+
+cmd_run() {
+  local package="$1" brief
+  brief=$(print_brief "$package")
+
+  if [[ -n "${AI_PORT_CMD:-}" ]]; then
+    # shellcheck disable=SC2086
+    printf '%s\n' "$brief" | ${AI_PORT_CMD}
+    return
+  fi
+
+  local cli
+  for cli in claude codex aider; do
+    if command -v "$cli" >/dev/null 2>&1; then
+      echo ">> handing the brief to $cli" >&2
+      case "$cli" in
+        claude) printf '%s\n' "$brief" | claude -p ;;
+        codex) printf '%s\n' "$brief" | codex exec - ;;
+        aider) printf '%s\n' "$brief" | aider --message "Follow the task brief on stdin exactly." ;;
+      esac
+      return
+    fi
+  done
+  echo "error: no agent CLI found (claude, codex, aider) and AI_PORT_CMD is unset." >&2
+  echo "Print the brief and use any agent:  bin/ai-port $package | <your-agent>" >&2
+  return 1
+}
+
+cmd_self_test() {
+  local failures=0
+  check() {
+    if [[ "$2" == "$3" ]]; then
+      echo "ok - $1"
+    else
+      echo "not ok - $1: expected [$2] got [$3]" >&2
+      ((++failures))
+    fi
+  }
+  check "class: ttf font is any" "any" "$(package_class ttf-ia-writer)"
+  check "class: claude-code is bin" "bin" "$(package_class claude-code)"
+  check "class: cursor-bin is bin" "bin" "$(package_class cursor-bin)"
+  check "class: hyprland is wave3" "wave3" "$(package_class hyprland)"
+  check "class: linux-omarchy is wave3" "wave3" "$(package_class linux-omarchy)"
+  check "skip: yaru in-gentoo" "in-gentoo" "$(skip_class yaru-icon-theme)"
+  check "skip: spotify blocked" "blocked" "$(skip_class spotify)"
+  check "row: cursor-bin" $'dev-util\tcursor-bin' "$(gentoo_row cursor-bin)"
+  check "queue: omarchy-keyring not open" "0" \
+    "$(cmd_list_open | grep -c 'omarchy-keyring.*OPEN' || true)"
+  check "queue: unported bin pkg listed" "1" \
+    "$(cmd_list_open | awk '$3 == "OPEN" && $2 == "once-bin"' | grep -c once-bin || true)"
+  check "queue: ported omazed not open" "0" \
+    "$(cmd_list_open | awk '$3 == "OPEN" && $2 == "omazed"' | grep -c omazed || true)"
+  local brief
+  brief=$(print_brief cursor-bin)
+  check "brief: mentions rules" "1" "$(grep -c 'House rules' <<<"$brief")"
+  check "brief: embeds PKGBUILD" "1" "$(grep -c 'pkgname=cursor-bin' <<<"$brief")"
+  check "brief: verify commands" "2" "$(grep -c 'bin/ai-port --verify' <<<"$brief")"
+
+  if ((failures)); then
+    echo "$failures self-test failure(s)" >&2
+    exit 1
+  fi
+  echo "all self-tests passed"
+}
+
+case "${1:-}" in
+  --list-open)
+    shift
+    cmd_list_open "$@"
+    ;;
+  --verify)
+    shift
+    [[ -n "${1:-}" ]] || { echo "usage: ai-port --verify <category>/<pkg>" >&2; exit 1; }
+    cmd_verify "$@"
+    ;;
+  --run)
+    shift
+    [[ -n "${1:-}" ]] || { echo "usage: ai-port --run <package>" >&2; exit 1; }
+    cmd_run "$@"
+    ;;
+  --self-test)
+    shift
+    cmd_self_test "$@"
+    ;;
+  -h | --help | "")
+    sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    ;;
+  *)
+    print_brief "$@"
+    ;;
+esac

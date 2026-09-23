@@ -1,0 +1,87 @@
+name: Upstream sync
+
+# The self-managed upstream feed: advance the pinned submodule to omacom's
+# master tip, reconcile our ebuilds against the new PKGBUILDs, and push the
+# mechanical result straight to master. When a rename is not purely
+# mechanical (a pinned URL still names the old release, a marker is missing,
+# a row is otherwise unresolvable) the push still happens and an
+# agent-actionable issue is filed instead.
+#
+# Trust: nothing from upstream is executed. PKGBUILDs are sourced only to
+# read versions (with CARCH set, the house convention), ebuilds are never
+# run here; the merged result is validated post-push by gentoo.yml's gates,
+# which file issues on failure - the loop closes itself.
+on:
+  schedule:
+    - cron: "41 */3 * * *" # every 3 hours, off the overlay loop's schedule
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+    steps:
+      - name: Install git and jq
+        run: pacman -Syu --noconfirm git jq
+
+      - name: Clone with submodule
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" /work
+          cd /work
+          git config user.name "omarchy-gentoo-ci"
+          git config user.email "hello@omarchy.org"
+
+      - name: Bump the pin, reconcile ebuilds, push
+        id: work
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          cd /work
+          before=$(git submodule status upstream | awk '{print $1}')
+          git submodule update --remote upstream
+          after=$(git submodule status upstream | awk '{print $1}')
+          if [[ "$before" == "$after" ]]; then
+            echo "upstream pin is already at the tip"
+            exit 0
+          fi
+          echo "pin: ${before} -> ${after}"
+          bin/sync-gentoo | tee /tmp/reconcile.log
+          git add -A
+          git commit --quiet -m "upstream: bump pin to $(git submodule status upstream | awk '{print substr($1, 1, 12)}'), reconcile ebuilds"
+          git push --quiet origin master
+          echo "pushed $(git rev-parse --short HEAD)"
+          if grep -qE '^skip |FAIL |by hand' /tmp/reconcile.log; then
+            echo "needs_human=true" >> "$GITHUB_OUTPUT"
+            cp /tmp/reconcile.log /tmp/followup.log
+          fi
+
+      - name: File follow-up issue for non-mechanical drift
+        if: steps.work.outputs.needs_human == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          head=$(git -C /work log --oneline -1 | awk '{print $1}')
+          body=$(printf '%s\n' \
+            "The upstream bump in ${head} renamed some ebuilds mechanically, but these rows need an agent or human to finish:" \
+            "" "    $(sed 's/$/  /' /tmp/followup.log | tr '\n' ' ')" "" \
+            "Read AGENTS.md, fix, verify with \`bin/ai-port --verify <category>/<name>\`, and push to master." \
+            "The gates in gentoo.yml validate the result and file further issues if anything is off.")
+          curl -sS -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues" \
+            -d "$(jq -nc --arg t "upstream sync needs follow-up (automated)" --arg b "$body" \
+                  '{title: $t, body: $b, labels: ["gentoo-overlay"]}')"

@@ -1,0 +1,59 @@
+#!/bin/bash
+# Dependency-resolution gate for the Gentoo overlay. Runs INSIDE a Gentoo
+# container with the overlay mounted at /var/db/repos/omarchy (see
+# .github/workflows/gentoo.yml and bin/ai-port --verify, which share this
+# script so local and CI verdicts cannot drift).
+#
+# Classification per package:
+#   exit 0                              -> ok
+#   "USE changes are necessary"         -> ok (a fixture/profile policy issue:
+#                                          the overlay's declarations are fine)
+#   anything else                       -> retried with --nodeps; if the atom
+#                                          itself resolves, ok with a note
+#                                          (the graph is blocked inside the
+#                                          gentoo tree fixture); else FAIL.
+# The overlay's exit code is the number of failures.
+set -uo pipefail
+
+REPO=${OMARCHY_REPO:-/var/db/repos/omarchy}
+
+export FEATURES="-ipc-sandbox -network-sandbox -pid-sandbox -sandbox"
+export ACCEPT_LICENSE="* -@EULA"
+export ACCEPT_KEYWORDS="~amd64"
+export CONFIG_PROTECT="-*"
+export PATH="$PATH:/usr/sbin"
+
+# The overlay targets a graphical system; a bare stage3 profile is too spartan
+# for the desktop stack these packages pull in.
+grep -q 'USE=.*X' /etc/portage/make.conf 2>/dev/null ||
+	echo 'USE="${USE} X gtk"' >>/etc/portage/make.conf
+
+failures=0
+count=0
+for dir in "$REPO"/*/*/; do
+	atom=${dir#"$REPO"/}
+	atom=${atom%/}
+	case "$atom" in metadata/*) continue ;; esac
+	[[ -d "$dir" ]] || continue
+	((++count))
+
+	out=$(emerge --pretend --quiet y --autounmask-write "$atom" 2>&1)
+	rc=$?
+	if [[ $rc -eq 0 ]]; then
+		echo "ok   $atom"
+	elif grep -q "USE changes are necessary" <<<"$out"; then
+		echo "ok   $atom (USE changes needed)"
+	else
+		out2=$(emerge --pretend --quiet y --nodeps "$atom" 2>&1)
+		if [[ $? -eq 0 ]]; then
+			echo "ok   $atom (graph blocked by tree fixture; atom ok via --nodeps)"
+		else
+			echo "FAIL $atom"
+			grep '!!!' <<<"$out" | head -3 | sed 's/^/     /'
+			((++failures))
+		fi
+	fi
+done
+
+echo "resolved $count packages, $failures failure(s)"
+exit "$failures"

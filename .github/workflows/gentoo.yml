@@ -1,0 +1,343 @@
+name: Gentoo overlay
+
+# The Gentoo overlay lives in gentoo/ and is mirrored to the `overlay` branch
+# (whose root IS the overlay) because Portage can only sync an ebuild
+# repository from the root of a git tree. Manifests never live in this
+# repository: they are generated from the distfiles and committed only on the
+# mirror branch.
+#
+# The workflow is self-managed: PRs are gated by static checks, merges are
+# mirrored automatically, one package is really emerged every night, the
+# unported queue is filed as a tracking issue agents pick work from, and any
+# gate failure files an issue so nobody has to watch the Actions tab.
+#
+# Trust model: PRs may change what the overlay contains (ebuilds), and the
+# lint job only ever parses that content with repo-owned tooling inside a
+# stock gentoo/stage3 container. Real emerge runs (which execute ebuild code)
+# happen exclusively from master: the nightly smoke job and the mirror.
+on:
+  pull_request:
+    paths:
+      - gentoo/**
+      - upstream
+      - helpers/gentoo-*
+      - bin/scaffold-ebuild
+      - bin/ai-port
+      - bin/gentoo-resolve
+      - bin/sync-gentoo
+      - .github/workflows/gentoo.yml
+  push:
+    branches: [master]
+    paths:
+      - gentoo/**
+      - upstream
+      - helpers/gentoo-*
+      - bin/scaffold-ebuild
+      - bin/ai-port
+      - bin/gentoo-resolve
+      - bin/sync-gentoo
+      - .github/workflows/gentoo.yml
+  schedule:
+    # Nightly loop (coverage issue, drift check, smoke emerge), 03:17 UTC -
+    # off the Arch pipeline's schedule.
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: gentoo-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  lint:
+    # Static validation of the overlay: parse every ebuild, check metadata
+    # and style with pkgcheck, and resolve every package with
+    # emerge --pretend against the live Gentoo tree. No distfiles are
+    # fetched here; the nightly job owns Manifest generation.
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    container:
+      image: gentoo/stage3:latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: recursive
+
+      # Recent stage3 images ship without the Gentoo repo snapshot; webrsync
+      # can fail transiently, so verify the profile actually resolves.
+      - name: Bootstrap Gentoo repository and tooling
+        run: |
+          set -eu
+          command -v getuto >/dev/null && getuto || true
+          emerge-webrsync -q
+          test -d /var/db/repos/gentoo/profiles || { emerge-webrsync; test -d /var/db/repos/gentoo/profiles; }
+          emerge --quiet dev-util/pkgdev
+
+      - name: Install overlay
+        run: |
+          set -eu
+          mkdir -p /etc/portage/repos.conf /var/db/repos/omarchy
+          ln -sf /usr/share/portage/config/repos.conf /etc/portage/repos.conf/gentoo.conf
+          cp -a "${GITHUB_WORKSPACE}/gentoo/." /var/db/repos/omarchy/
+          printf '[omarchy]\nlocation = /var/db/repos/omarchy\nmasters = gentoo\nauto-sync = off\n' \
+            > /etc/portage/repos.conf/omarchy.conf
+
+      - name: pkgcheck scan
+        # Manifests are generated at mirror time, so the MissingManifest
+        # check cannot pass in this job by design.
+        run: pkgcheck scan -k,-MissingManifest --cache-dir /tmp/pkgcheck-cache --verbose /var/db/repos/omarchy
+
+      - name: Resolve every package (emerge --pretend)
+        # bin/gentoo-resolve classifies per package; see its header for the
+        # USE-change and tree-fixture tolerance rules.
+        run: |
+          set -eu
+          chmod +x "$GITHUB_WORKSPACE/bin/gentoo-resolve"
+          "$GITHUB_WORKSPACE/bin/gentoo-resolve"
+
+  smoke-emerge:
+    # Real emerge of one rotating package, from master only (see trust model
+    # above): an ebuild's dependency closure can still be a full desktop
+    # stack, and stage3 builds it from source.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    container:
+      image: gentoo/stage3:latest
+    timeout-minutes: 350
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Bootstrap Gentoo repository and tooling
+        run: |
+          set -eu
+          command -v getuto >/dev/null && getuto || true
+          emerge-webrsync -q
+          test -d /var/db/repos/gentoo/profiles || { emerge-webrsync; test -d /var/db/repos/gentoo/profiles; }
+          emerge --quiet dev-util/pkgdev
+
+      - name: Install overlay
+        run: |
+          set -eu
+          mkdir -p /etc/portage/repos.conf /var/db/repos/omarchy
+          ln -sf /usr/share/portage/config/repos.conf /etc/portage/repos.conf/gentoo.conf
+          cp -a "${GITHUB_WORKSPACE}/gentoo/." /var/db/repos/omarchy/
+          printf '[omarchy]\nlocation = /var/db/repos/omarchy\nmasters = gentoo\nauto-sync = off\n' \
+            > /etc/portage/repos.conf/omarchy.conf
+
+      - name: Generate Manifests
+        run: pkgdev manifest --force /var/db/repos/omarchy
+
+      - name: Verify distfiles (pkgcheck with digests)
+        run: pkgcheck scan --verbose /var/db/repos/omarchy
+
+      - name: Emerge the rotating package of the day
+        run: |
+          set -eu
+          mapfile -t atoms < <(
+            find /var/db/repos/omarchy -name '*.ebuild' -printf '%h\n' \
+              | sort -u | sed 's|/var/db/repos/omarchy/||'
+          )
+          (( ${#atoms[@]} > 0 )) || { echo "overlay is empty"; exit 0; }
+          # day-of-year rotation, stable within a day
+          pick=$(( $(date +%j) % ${#atoms[@]} ))
+          atom="${atoms[$pick]}"
+          echo "smoke emerging ${atom} (${pick} of $((${#atoms[@]} - 1)))"
+          FEATURES="-network-sandbox -sandbox" ACCEPT_LICENSE="* -@EULA" ACCEPT_KEYWORDS="~amd64" emerge --ask n --verbose y "${atom}"
+
+  sync-check:
+    # Ebuild drift from the Arch recipes: upstream's automation bumps
+    # PKGBUILDs; this check notices when the co-maintained ebuilds lag and
+    # fails so the report job files an issue (an agent or maintainer then
+    # runs bin/sync-gentoo <package>, which does the rename). Needs vercmp,
+    # so an Arch container; needs a plain clone because the JS checkout
+    # actions require node, which base-devel does not ship.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+    steps:
+      - name: Clone repository
+        run: git clone --recurse-submodules --shallow-submodules --depth 1 \
+            "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git" /workspace
+
+      - name: Check ebuild drift
+        run: |
+          set -eu
+          cd /workspace
+          bin/sync-gentoo --check
+
+  coverage:
+    # File/update the tracking issue that IS the porting backlog: the unported
+    # queue from bin/ai-port --list-open, with skips and blockers. This issue
+    # is what coding agents pick work from; keep it honest.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Build the coverage report
+        run: |
+          {
+            echo "Automated porting backlog, regenerated nightly by the"
+            echo "[coverage job](../actions/workflows/gentoo.yml). Agents: read"
+            echo "AGENTS.md, then hand a row to the agent of your choice with"
+            echo '``'
+            echo "bin/ai-port <package>"
+            echo '``'
+            echo "and self-verify with \`bin/ai-port --verify <category>/<name>\`."
+            echo
+            echo "## Open (unported, in scope)"
+            echo '```'
+            bin/ai-port --list-open | awk '$3 == "OPEN"'
+            echo '```'
+            echo "## Intentionally skipped"
+            echo '```'
+            bin/ai-port --list-open | awk '$3 != "OPEN"'
+            echo '```'
+            echo "## Currently shipped"
+            echo '```'
+            awk -F'\t' 'NF >= 3 && $1 !~ /^#/ { printf "%-36s %s/%s\n", $1, $2, $3 }' helpers/gentoo-packages.tsv
+            echo '```'
+            echo "_Last regenerated: $(date -u +%FT%TZ)_"
+          } > coverage-report.md
+          cat coverage-report.md
+
+      - name: Update the tracking issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          gh label create gentoo-overlay --repo "$GITHUB_REPOSITORY" \
+            --color 495D95 --description "Gentoo overlay automation" 2>/dev/null || true
+          title="Gentoo overlay: porting backlog (automated)"
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" \
+            --search "$title in:title" --json number --jq '.[0].number' || true)
+          body=$(cat coverage-report.md)
+          if [[ -n "$existing" ]]; then
+            gh issue edit "$existing" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" \
+              --title "$title" --body "$body" --label "gentoo-overlay"
+          fi
+
+  mirror:
+    # Publish: regenerate Manifests and fast-forward the `overlay` branch
+    # whose tree root is the overlay users sync.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    container:
+      image: gentoo/stage3:latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Bootstrap Gentoo repository and tooling
+        run: |
+          set -eu
+          command -v getuto >/dev/null && getuto || true
+          emerge-webrsync -q
+          test -d /var/db/repos/gentoo/profiles || { emerge-webrsync; test -d /var/db/repos/gentoo/profiles; }
+          emerge --quiet dev-util/pkgdev dev-vcs/git
+
+      - name: Build the overlay tree with fresh Manifests
+        run: |
+          set -eu
+          mkdir -p /etc/portage/repos.conf /var/db/repos/omarchy
+          ln -sf /usr/share/portage/config/repos.conf /etc/portage/repos.conf/gentoo.conf
+          cp -a "${GITHUB_WORKSPACE}/gentoo/." /var/db/repos/omarchy/
+          printf '[omarchy]\nlocation = /var/db/repos/omarchy\nmasters = gentoo\nauto-sync = off\n' \
+            > /etc/portage/repos.conf/omarchy.conf
+          pkgdev manifest --force /var/db/repos/omarchy
+          # Stage the plain overlay tree (no git metadata yet).
+          mkdir -p /tmp/staging
+          cp -a /var/db/repos/omarchy/. /tmp/staging/
+
+      - name: Commit and push the overlay branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          git config --global user.name "omarchy-pkgs-ci"
+          git config --global user.email "hello@omarchy.org"
+
+          # Fast-forward history when the overlay branch exists, start it
+          # when it does not; then replace the tree wholesale with the
+          # freshly generated one.
+          if git clone --quiet --branch overlay --single-branch \
+              "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+              /tmp/overlay 2>/dev/null; then
+            :
+          else
+            mkdir -p /tmp/overlay
+            git -C /tmp/overlay init --initial-branch=overlay
+          fi
+
+          cd /tmp/overlay
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -a /tmp/staging/. .
+          git config --global --add safe.directory /tmp/overlay
+
+          git add -A
+          if git diff --cached --quiet; then
+            echo "overlay branch is up to date"
+            exit 0
+          fi
+          git commit --quiet -m "overlay: mirror gentoo/ from ${GITHUB_SHA::12}"
+          git push --quiet "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            HEAD:refs/heads/overlay
+
+  report:
+    # Self-managed failure path: nobody watches the Actions tab. Any failing
+    # gate on master or the nightly loop opens (or comments on) a single
+    # tracking issue with the run link. PR failures stay on the PR checks.
+    needs: [lint, smoke-emerge, mirror, sync-check]
+    if: >-
+      ${{
+        always() &&
+        github.event_name != 'pull_request' &&
+        contains(needs.*.result, 'failure')
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: File a failure issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TITLE: "Gentoo overlay: automated gates failing (automated)"
+        run: |
+          set -eu
+          gh label create gentoo-overlay --repo "$GITHUB_REPOSITORY" \
+            --color B60205 --description "Gentoo overlay automation" 2>/dev/null || true
+          run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          failed_jobs=$(echo '${{ toJSON(needs.*.result) }}')
+          body=$(printf '%s\n' \
+            "A Gentoo overlay gate failed in [run ${GITHUB_RUN_ID}](${run_url})." \
+            "" \
+            "Job results: \`${failed_jobs}\`" \
+            "" \
+            "Read AGENTS.md, reproduce locally with \`bin/ai-port --verify <category>/<name>\`" \
+            "or the failing job's steps, fix, and PR. This issue is closed" \
+            "automatically by the next green run of the same workflow.")
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" \
+            --search "$TITLE in:title" --json number --jq '.[0].number' || true)
+          if [[ -n "$existing" ]]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" \
+              --title "$TITLE" --body "$body" --label "gentoo-overlay"
+          fi

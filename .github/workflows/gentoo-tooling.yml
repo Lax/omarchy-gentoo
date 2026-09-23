@@ -1,0 +1,87 @@
+name: Gentoo tooling
+
+# Offline self-tests for the Gentoo overlay tooling: the scaffolder, the
+# port queue, the mapping tables, and the ebuild/PKGBUILD drift checker.
+# Deliberately separate from upstream's test.yml (and from gentoo.yml's
+# stage3 gates) so this repository can be synced from upstream constantly
+# without file conflicts: everything the Gentoo work owns lives in
+# gentoo-prefixed files and this workflow.
+on:
+  pull_request:
+    paths:
+      - gentoo/**
+      - upstream
+      - helpers/gentoo-*
+      - bin/scaffold-ebuild
+      - bin/ai-port
+      - bin/gentoo-resolve
+      - bin/sync-gentoo
+      - .github/workflows/gentoo-tooling.yml
+  push:
+    branches: [master]
+    paths:
+      - gentoo/**
+      - upstream
+      - helpers/gentoo-*
+      - bin/scaffold-ebuild
+      - bin/ai-port
+      - bin/gentoo-resolve
+      - bin/sync-gentoo
+      - .github/workflows/gentoo-tooling.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gentoo-tooling-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  self-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Scaffold, port queue, mapping tables and drift checker
+        run: |
+          set -euo pipefail
+          bin/scaffold-ebuild --self-test
+          bin/ai-port --self-test
+          bash -n bin/gentoo-resolve
+          bash -n bin/sync-gentoo
+          bin/sync-gentoo --self-test
+
+      - name: Mapping tables agree with the overlay
+        run: |
+          set -euo pipefail
+          # Every packages.tsv row points at an existing overlay package.
+          while IFS=$'\t' read -r arch category gname; do
+            case "$arch" in ''|'#'*) continue ;; esac
+            [[ -d "gentoo/$category/$gname" ]] || {
+              echo "packages.tsv row $arch -> gentoo/$category/$gname has no directory"
+              exit 1
+            }
+            ls "gentoo/$category/$gname/"*.ebuild >/dev/null || {
+              echo "gentoo/$category/$gname has no ebuild"
+              exit 1
+            }
+          done < helpers/gentoo-packages.tsv
+          # Every ebuild parses as bash and carries the baseline marker the
+          # drift checker needs (bin/sync-gentoo --check in gentoo.yml).
+          for ebuild in gentoo/*/*/*.ebuild; do
+            bash -n "$ebuild"
+            case "$ebuild" in
+              gentoo/acct-group/*) ;; # generated groups carry no baseline
+              *)
+                grep -q '^# arch-pkgver:' "$ebuild" || {
+                  echo "$ebuild is missing its '# arch-pkgver:' baseline marker"
+                  exit 1
+                }
+                ;;
+            esac
+          done

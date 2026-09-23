@@ -1,0 +1,370 @@
+#!/bin/bash
+# Scaffold a Gentoo ebuild from a pkgbuilds/<name> recipe.
+#
+# This is the bootstrap step of the PKGBUILD -> ebuild translation described
+# in docs/gentoo.md. It translates everything that is mechanical (header
+# fields, SRC_URI with per-architecture conditionals, KEYWORDS, RESTRICT,
+# LICENSE via the table below, RDEPEND via helpers/gentoo-deps.map) and copies
+# the PKGBUILD's package() body into src_install() with ${pkgdir} -> ${D} and
+# ${srcdir} -> ${WORKDIR} substitutions as a starting point. The result is
+# written to gentoo/<category>/<name>/<name>-<version>.ebuild marked
+# UNREVIEWED at the top: a human must finish it (Gentoo helper functions,
+# eclasses, .install translation, QA) before it can ship. It never overwrites
+# an existing ebuild.
+#
+# Usage: scaffold-ebuild <arch-package-name>...
+#        scaffold-ebuild --list
+#        scaffold-ebuild --print-version <arch-pkgver>
+#        scaffold-ebuild --self-test
+set -euo pipefail
+BUILD_ROOT=$(realpath "${BASH_SOURCE[0]%/*}/..")
+# Two roots: BUILD_ROOT is this management repo; upstream/ is the
+# pinned submodule whose PKGBUILDs our tooling reconciles against.
+UPSTREAM_ROOT="${OMARCHY_UPSTREAM:-$BUILD_ROOT/upstream}"
+PKGBUILDS_DIR="${PKGBUILDS_DIR:-$UPSTREAM_ROOT/pkgbuilds}"
+[[ -f "$UPSTREAM_ROOT/helpers/package-metadata.sh" ]] || {
+	echo "error: upstream submodule not checked out under $UPSTREAM_ROOT; run: git submodule update --init" >&2
+	exit 1
+}
+source "$UPSTREAM_ROOT/helpers/package-metadata.sh"
+source "$BUILD_ROOT/helpers/gentoo.sh"
+
+GENTOO_ROOT="$BUILD_ROOT/gentoo"
+
+# Read a PKGBUILD variable the way the rest of this repository does.
+pkgvar() {
+  local pkgdir="$1" var="$2"
+  package_pkgbuild_var "$pkgdir" "$var" "${3:-}"
+}
+
+# Read a PKGBUILD *array* variable in full. The scalar helper above only ever
+# sees the first element of an array, which silently drops every dependency
+# but the first.
+pkgvar_array() {
+  local pkgdir="$1" var="$2"
+  (
+    cd "$pkgdir" && env -u OMARCHY_SRC CARCH="${3:-x86_64}" bash -c '
+      source PKGBUILD >/dev/null 2>&1
+      declare -n ref="$1"
+      printf "%s\n" ${ref[@]+"${ref[@]}"}
+    ' _ "$var"
+  )
+}
+
+src_uri_entry() {
+  # <source-entry> <arch or empty> ; prints a Gentoo SRC_URI fragment.
+  local entry="$1" arch="$2"
+  local name="${entry%%::*}"
+  local url="${entry#*::}"
+  if [[ "$name" == "$url" ]]; then
+    name="${url##*/}" # no rename: Portage derives the file name
+  fi
+  # Local PKGBUILD-dir files (no scheme) cannot be fetched; they must be
+  # shipped in the ebuild's files/ directory by the reviewer.
+  if [[ "$url" != *://* ]]; then
+    echo "LOCALFILE:$name"
+    return
+  fi
+  if [[ -n "$arch" ]]; then
+    echo "$(gentoo_arch_keyword "$arch")? ( $url -> $name )"
+  else
+    echo "$url -> $name"
+  fi
+}
+
+gentoo_arch_keyword() {
+  case "$1" in
+    x86_64) echo amd64 ;;
+    aarch64) echo arm64 ;;
+    *) echo "$1" ;;
+  esac
+}
+
+# Translate ${pkgdir}/${srcdir}/${startdir} and makepkg-isms in a copied
+# package() body into Gentoo equivalents. Deliberately conservative: anything
+# it does not understand is left for the human reviewer.
+translate_package_body() {
+  sed -e 's/\${pkgdir}/${D}/g' \
+      -e 's/\$pkgdir/${D}/g' \
+      -e 's/\${srcdir}/${WORKDIR}/g' \
+      -e 's/\$srcdir/${WORKDIR}/g' \
+      -e 's/\${startdir}/${FILESDIR}/g' \
+      -e 's/\$CARCH/${ARCH}/g' \
+      -e 's/\binstall -Dm0644\b/install -Dm644/g' \
+      -e 's/\binstall -Dm0755\b/install -Dm755/g' \
+      -e 's/\bmake DESTDIR="\${D}"\b/emake DESTDIR="${D}"/g' \
+      -e 's/\breturn 1\b/die "ported from PKGBUILD: step failed"/g'
+}
+
+scaffold_package() {
+  local package="$1"
+  local pkgdir
+  pkgdir=$(package_dir_for_name "$package") || {
+    echo "error: $package is not a directory in upstream/pkgbuilds/" >&2
+    return 1
+  }
+
+  local location
+  location=$(gentoo_location "$package")
+  if [[ -z "$location" ]]; then
+    echo "error: $package has no row in helpers/gentoo-packages.tsv; add <arch-name> <category> <gentoo-name> first" >&2
+    return 1
+  fi
+  local category=${location%/*} gname=${location#*/}
+
+  local pkgver arches licenses pkgdesc url depends binpkg=""
+  pkgver=$(pkgvar "$pkgdir" pkgver)
+  arches=$(pkgvar_array "$pkgdir" arch | tr '\n' ' ')
+  licenses=$(pkgvar_array "$pkgdir" license | tr '\n' ' ')
+  pkgdesc=$(pkgvar "$pkgdir" pkgdesc)
+  url=$(pkgvar "$pkgdir" url)
+  depends=$(pkgvar_array "$pkgdir" depends)
+
+  [[ "$package" == *-bin || "$package" == *-beta ]] && binpkg=yes
+  # Binary repackages that do not carry a -bin suffix in Arch.
+  case "$package" in
+    1password | claude-code | cursor-bin | dropbox | minecraft-launcher | perplexity | spotify | sublime-text-4 | typora | visual-studio-code-bin) binpkg=yes ;;
+  esac
+
+  local version
+  version=$(gentoo_version "$pkgver")
+  local target_dir="$GENTOO_ROOT/$category/$gname"
+  local target="$target_dir/$gname-$version.ebuild"
+  if ls "$target_dir"/"$gname"-*.ebuild >/dev/null 2>&1; then
+    echo "error: $category/$gname already has an ebuild; bump it instead (rename to -$version.ebuild and update PV references)" >&2
+    return 1
+  fi
+
+  # ---- header fields -----------------------------------------------------
+  local rdepend="" warnings=""
+  local dep mapped
+  for dep in $depends; do
+    dep=${dep%,}
+    [[ -n "$dep" ]] || continue
+    mapped=$(map_dep "$dep")
+    case "$mapped" in
+      "")
+        warnings+="  unmapped dependency: $dep\n"
+        rdepend+="${dep}?? " # never valid; forces the reviewer to look
+        ;;
+      DROP)
+        continue
+        ;;
+      MANUAL:*)
+        warnings+="  $dep -> ${mapped#MANUAL:}\n"
+        rdepend+="# ${mapped#MANUAL:}\n"
+        ;;
+      *)
+        rdepend+="$mapped "
+        ;;
+    esac
+  done
+
+  local restrict=""
+  [[ -n "$binpkg" ]] && restrict="strip mirror"
+
+  # ---- SRC_URI -----------------------------------------------------------
+  local srcuri="" entry local_files=""
+  while IFS= read -r entry; do
+    [[ -n "$entry" ]] || continue
+    local fragment
+    fragment=$(src_uri_entry "$entry" "")
+    if [[ "$fragment" == LOCALFILE:* ]]; then
+      local_files+=" ${fragment#LOCALFILE:}"
+      continue
+    fi
+    srcuri+="  $fragment\n"
+  done < <(pkgvar_array "$pkgdir" source)
+  # Quoted entries containing spaces cannot survive the word-per-line array
+  # dump; they surface in the warnings below when their URL is dropped, and
+  # the reviewer adds them by hand.
+  local arch
+  for arch in x86_64 aarch64; do
+    while IFS= read -r entry; do
+      [[ -n "$entry" ]] || continue
+      local fragment
+      fragment=$(src_uri_entry "$entry" "$arch")
+      [[ "$fragment" == LOCALFILE:* ]] && { local_files+=" ${fragment#LOCALFILE:}"; continue; }
+      srcuri+="  $fragment\n"
+    done < <(pkgvar_array "$pkgdir" "source_$arch")
+  done
+
+  # ---- package() body ----------------------------------------------------
+  local body
+  body=$(awk '/^package\(\)/,/^}/' "$pkgdir/PKGBUILD" | tail -n +2 | head -n -1)
+  body=$(translate_package_body <<<"$body")
+  if [[ -z "${body//[$' \t\n']/}" ]]; then
+    body="\t# PKGBUILD has no package() function; write src_install from scratch."
+  fi
+
+  # ---- emit --------------------------------------------------------------
+  mkdir -p "$target_dir"
+  {
+    echo "# UNREVIEWED SCAFFOLD - generated by bin/scaffold-ebuild from"
+    echo "# pkgbuilds/$package/PKGBUILD. Finish per docs/gentoo.md before merging:"
+    echo "# translate src_install to Gentoo helpers/eclasses, review RDEPEND,"
+    echo "# handle ${local_files:-local files} via FILESDIR, then remove this banner."
+    echo "EAPI=8"
+    echo
+    [[ -n "$binpkg" ]] && echo "# Prebuilt vendor binary."
+    echo "DESCRIPTION=\"${pkgdesc//\"/}\""
+    echo "HOMEPAGE=\"${url:-https://github.com/omarchy/omarchy-pkgs}\""
+    echo "SRC_URI=\""
+    printf '%b' "$srcuri"
+    echo "\""
+    echo
+    echo "LICENSE=\"$(license_map "$licenses")\""
+    echo "SLOT=\"0\""
+    echo "KEYWORDS=\"$(keywords_for_arches "$arches")\""
+    [[ -n "$restrict" ]] && { echo; echo "RESTRICT=\"strip mirror\""; }
+    if [[ -n "${rdepend// /}" ]]; then
+      echo
+      echo "RDEPEND=\""
+      echo "${rdepend%% }" | fold -s -w 76 | sed 's/^/\t/'
+      echo "\""
+    fi
+    echo
+    echo "src_install() {"
+    echo "$body" | sed 's/^/\t/'
+    echo "}"
+  } >"$target"
+
+  # Minimal metadata.xml so pkgcheck's maintainer-needed check has something.
+  if [[ ! -f "$target_dir/metadata.xml" ]]; then
+    cat >"$target_dir/metadata.xml" <<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="project">
+		<email>hello@omarchy.org</email>
+		<name>Omarchy</name>
+	</maintainer>
+</pkgmetadata>
+XML
+  fi
+
+  echo "scaffolded: $target"
+  [[ -n "$local_files" ]] && warnings+="  local source files need FILESDIR copies:${local_files}\n"
+  if [[ -n "$warnings" ]]; then
+    echo "review required:" >&2
+    printf '%b' "$warnings" >&2
+  fi
+}
+
+cmd_list() {
+  awk -F'\t' 'NF >= 3 && $1 !~ /^#/ { printf "%-36s %s/%s\n", $1, $2, $3 }' "$PACKAGES_TSV"
+}
+
+cmd_self_test() {
+  local failures=0
+  check() { # check <label> <expected> <actual>
+    if [[ "$2" == "$3" ]]; then
+      echo "ok - $1"
+    else
+      echo "not ok - $1: expected [$2] got [$3]" >&2
+      ((++failures))
+    fi
+  }
+  check "license: proprietary ref" "all-rights-reserved" "$(license_map "LicenseRef-Cursor_EULA")"
+  check "license: apache short form" "Apache-2.0" "$(license_map "Apache")"
+  check "license: dedup multi" "MIT Apache-2.0" "$(license_map "MIT Apache MIT Apache-2.0")"
+  check "license: ofl custom" "OFL-1.1" "$(license_map "custom:OFL")"
+  check "license: gpl3" "GPL-3" "$(license_map "GPL3")"
+  check "keywords: any" "~amd64 ~arm64" "$(keywords_for_arches "any")"
+  check "keywords: x86_64 aarch64" "~amd64 ~arm64" "$(keywords_for_arches "x86_64 aarch64")"
+  check "keywords: x86_64 only" "~amd64" "$(keywords_for_arches "x86_64")"
+  check "version: epoch dropped" "1.2.3" "$(gentoo_version "1:1.2.3")"
+  check "version: r-suffix folded" "1.22.1_p200" "$(gentoo_version "1.22.1.p200")"
+  check "version: hyphen folded" "0.1_beta" "$(gentoo_version "0.1-beta")"
+  check "arch keyword: x86_64" "amd64" "$(gentoo_arch_keyword x86_64)"
+  check "arch keyword: aarch64" "arm64" "$(gentoo_arch_keyword aarch64)"
+  check "dep map: hit" "x11-libs/gtk+:3" "$(map_dep "gtk3")"
+  check "dep map: drop" "DROP" "$(map_dep "glibc")"
+  check "dep map: versioned row" ">=net-libs/nodejs-22" "$(map_dep "nodejs>=22")"
+  check "dep map: soname" "x11-libs/gtk+:3" "$(map_dep "libgtk-3.so=0")"
+  check "dep map: unknown is empty" "" "$(map_dep "no-such-dep-xyz")"
+  check "location: table lookup" "dev-util/cursor-bin" "$(gentoo_location cursor-bin)"
+  check "translate: pkgdir" 'insinto "${D}"/usr/share' \
+    "$(translate_package_body <<< 'insinto "${pkgdir}"/usr/share')"
+  check "translate: return 1" $'die "ported from PKGBUILD: step failed"' \
+    "$(translate_package_body <<< 'return 1')"
+
+  # End-to-end on a fixture package. The script derives BUILD_ROOT from its
+  # own location, so the fixture gets a copy of the script itself and runs the
+  # production code paths against the fixture tree.
+  local fixture
+  fixture=$(mktemp -d)
+  mkdir -p "$fixture/upstream/pkgbuilds/fixture-bin" "$fixture/upstream/helpers" \
+    "$fixture/gentoo" "$fixture/helpers" "$fixture/bin"
+  cp "$DEPS_MAP" "$fixture/helpers/" && cp "$PACKAGES_TSV" "$fixture/helpers/"
+  cp "$BUILD_ROOT/helpers/gentoo.sh" "$fixture/helpers/"
+  cp "$UPSTREAM_ROOT/helpers/package-metadata.sh" "$fixture/upstream/helpers/"
+  cp "${BASH_SOURCE[0]}" "$fixture/bin/scaffold-ebuild"
+  chmod +x "$fixture/bin/scaffold-ebuild"
+  printf '%s\n' \
+    "pkgname=fixture-bin" "pkgver=1.2.3" "pkgrel=1" \
+    "pkgdesc='Fixture (\"quoted\") app'" "arch=('x86_64')" \
+    "url='https://example.com/fixture'" "license=('MIT')" \
+    "depends=('gtk3' 'glibc' 'libtotally-unknown')" \
+    "source_x86_64=(\"fixture-\${pkgver}-x86_64.tar.gz::https://example.com/dl/fixture-linux-x64.tar.gz\")" \
+    "package() {" "  install -Dm755 fixture \"\${pkgdir}/usr/bin/fixture\"" "}" \
+    >"$fixture/upstream/pkgbuilds/fixture-bin/PKGBUILD"
+  printf '%s\n' "fixture-bin	app-misc	fixture-bin" >>"$fixture/helpers/gentoo-packages.tsv"
+  (
+    cd "$fixture" &&
+      ./bin/scaffold-ebuild fixture-bin >/dev/null 2>&1
+  )
+  check "e2e: ebuild file created" "yes" \
+    "$([[ -f "$fixture/gentoo/app-misc/fixture-bin/fixture-bin-1.2.3.ebuild" ]] && echo yes || echo no)"
+  check "e2e: metadata.xml created" "yes" \
+    "$([[ -f "$fixture/gentoo/app-misc/fixture-bin/metadata.xml" ]] && echo yes || echo no)"
+  if [[ -f "$fixture/gentoo/app-misc/fixture-bin/fixture-bin-1.2.3.ebuild" ]]; then
+    local generated
+    generated=$(cat "$fixture/gentoo/app-misc/fixture-bin/fixture-bin-1.2.3.ebuild")
+    check "e2e: SRC_URI conditional" "1" \
+      "$(grep -c 'amd64? ( https://example.com/dl/fixture-linux-x64.tar.gz -> fixture-1.2.3-x86_64.tar.gz )' <<<"$generated")"
+    check "e2e: glibc dropped from RDEPEND" "0" "$(grep -c 'glibc' <<<"$generated")"
+    check "e2e: gtk3 mapped" "1" "$(grep -c 'x11-libs/gtk+:3' <<<"$generated")"
+    check "e2e: unknown dep flagged" "1" "$(grep -c 'libtotally-unknown??' <<<"$generated")"
+    check "e2e: RESTRICT set" "1" "$(grep -c '^RESTRICT="strip mirror"$' <<<"$generated")"
+  fi
+  rm -rf "$fixture"
+
+  if ((failures)); then
+    echo "$failures self-test failure(s)" >&2
+    exit 1
+  fi
+  echo "all self-tests passed"
+}
+
+case "${1:-}" in
+  --list)
+    shift
+    cmd_list "$@"
+    ;;
+  # Print the Gentoo version a given Arch pkgver maps to (used by
+  # bin/sync-upstream to co-bump ebuild filenames).
+  --print-version)
+    [[ -n "${2:-}" ]] || {
+      echo "usage: scaffold-ebuild --print-version <arch-pkgver>" >&2
+      exit 1
+    }
+    gentoo_version "$2"
+    ;;
+  --self-test)
+    shift
+    cmd_self_test "$@"
+    ;;
+  -h | --help | "")
+    sed -n '2,15p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    ;;
+  *)
+    [[ -d "$GENTOO_ROOT" ]] || {
+      echo "error: $GENTOO_ROOT does not exist" >&2
+      exit 1
+    }
+    for package in "$@"; do
+      scaffold_package "$package"
+    done
+    ;;
+esac
