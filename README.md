@@ -8,6 +8,18 @@ Maintained by automation and coding agents. `AGENTS.md` is the playbook; `docs/g
 
 ## Using the overlay
 
+Quick start — `eselect repository add` only writes the config, so pin the
+branch before the first sync (the default branch `master` is this
+project's tooling root, not the overlay):
+
+```bash
+eselect repository add omarchy git https://github.com/Lax/omarchy-gentoo.git
+sed -i '/^\[omarchy\]$/a sync-git-clone-extra-opts = --branch=overlay' /etc/portage/repos.conf/eselect-repo.conf
+emaint sync -r omarchy
+```
+
+Or hand-write the repository definition:
+
 ```ini
 # /etc/portage/repos.conf/omarchy.conf
 [omarchy]
@@ -18,7 +30,7 @@ sync-git-clone-extra-opts = --branch=overlay
 priority = 50
 ```
 
-Then `emaint sync -r omarchy` and `emerge <category>/<package>`. Keyword `~amd64`/`~arm64` as usual, and accept the proprietary licenses of the `-bin` packages, e.g. `*/* all-rights-reserved` in `/etc/portage/package.license`. See `docs/gentoo.md` for details.
+Then `emerge <category>/<package>`. Keyword `~amd64`/`~arm64` as usual, and accept the proprietary licenses of the `-bin` packages, e.g. `*/* all-rights-reserved` in `/etc/portage/package.license`. See `docs/gentoo.md` for details.
 
 ## Layout
 

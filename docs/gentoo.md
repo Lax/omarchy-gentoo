@@ -20,8 +20,22 @@ ebuilds later.
 ## Using the overlay
 
 An ebuild repository must sit at the root of the git tree Portage syncs,
-so CI mirrors `gentoo/` to the repository's `overlay` branch. On a Gentoo
-machine:
+so CI mirrors `gentoo/` to the repository's `overlay` branch — the
+default `master` branch is this project's tooling root, not an overlay.
+On a Gentoo machine:
+
+Quick start with eselect-repository. `eselect repository add` only writes
+the repos.conf entry, it does not sync, so the branch pin must be in
+place before the first sync (without it the sync clones `master` and
+yields an empty repository):
+
+```bash
+eselect repository add omarchy git https://github.com/Lax/omarchy-gentoo.git
+sed -i '/^\[omarchy\]$/a sync-git-clone-extra-opts = --branch=overlay' /etc/portage/repos.conf/eselect-repo.conf
+emaint sync -r omarchy
+```
+
+Or hand-write the repository definition:
 
 ```ini
 # /etc/portage/repos.conf/omarchy.conf
@@ -29,16 +43,13 @@ machine:
 location = /var/db/repos/omarchy
 sync-type = git
 sync-uri = https://github.com/Lax/omarchy-gentoo.git
-clone-depth = 1
+sync-git-clone-extra-opts = --branch=overlay
 priority = 50
 ```
 
-`emaint sync -r omarchy`, then `emerge <category>/<package>`. Keyword
-everything `~amd64`/`~arm64` (accept the unstable keyword as usual). Note:
-`sync-git-clone-extra-opts = --branch=overlay` may be required depending on
-your Portage version if the default branch is not followed; the `overlay`
-branch is the deliverable, mirrored from `gentoo/` on every merge to
-master.
+Either way, keep it current with plain `emaint sync -r omarchy`. Then
+`emerge <category>/<package>`. Keyword everything `~amd64`/`~arm64`
+(accept the unstable keyword as usual).
 
 The `-bin` and vendor packages carry proprietary licenses (the
 `all-rights-reserved` token). Accept them like any other proprietary
