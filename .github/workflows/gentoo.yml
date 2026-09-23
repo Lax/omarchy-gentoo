@@ -51,9 +51,10 @@ permissions:
   contents: write
   issues: write
 
-concurrency:
-  group: gentoo-${{ github.ref }}
-  cancel-in-progress: false
+# No workflow-level concurrency: the jobs now run on disjoint machines
+# (smoke on the self-hosted runner, everything else on GitHub-hosted), and
+# serializing push feedback behind a nightly smoke costs hours for no
+# safety - mirror is the only writer and each push runs it at most once.
 
 jobs:
   lint:
@@ -62,10 +63,7 @@ jobs:
     # runs on the host (checkout needs git for submodules; the stage3 image
     # ships none) and drives the container through docker run - the same
     # pattern upstream's test.yml uses for its Arch container. No distfiles
-    # are fetched here; the nightly job owns Manifest generation. The build
-    # caches are GitHub-hosted pool state now that smoke runs self-hosted:
-    # lint and mirror restore and re-save them, so repeated pushes reuse the
-    # pkgdev binpkg instead of rebuilding it.
+    # are fetched here; the nightly job owns Manifest generation.
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
@@ -75,22 +73,11 @@ jobs:
           persist-credentials: false
           submodules: recursive
 
-      - name: Restore build caches (read-only consumer)
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            .build-cache/distfiles
-            .build-cache/bin-pkgs
-          key: omarchy-build-v1-${{ github.run_id }}-${{ github.job }}
-          restore-keys: omarchy-build-v1-
-
       - name: pkgcheck scan and resolve every package (stage3)
         run: |
           docker run --rm \
             -v "$PWD/gentoo:/var/db/repos/omarchy" \
             -v "$PWD/bin/gentoo-resolve:/usr/local/bin/gentoo-resolve:ro" \
-            -v "$PWD/.build-cache/distfiles:/var/cache/distfiles" \
-            -v "$PWD/.build-cache/bin-pkgs:/var/cache/binpkgs" \
             gentoo/stage3 bash -c '
               set -eu
               command -v getuto >/dev/null && getuto || true
@@ -99,19 +86,10 @@ jobs:
               mkdir -p /etc/portage/repos.conf
               ln -sf /usr/share/portage/config/repos.conf /etc/portage/repos.conf/gentoo.conf
               printf "[omarchy]\nlocation = /var/db/repos/omarchy\nmasters = gentoo\nauto-sync = off\n" > /etc/portage/repos.conf/omarchy.conf
-              echo "FEATURES=\"\${FEATURES} buildpkg\"" >> /etc/portage/make.conf
-              emerge --quiet -k dev-util/pkgdev
+              emerge --quiet dev-util/pkgdev
               pkgcheck scan -k,-MissingManifest --cache-dir /tmp/pkgcheck-cache --verbose /var/db/repos/omarchy
               gentoo-resolve
             '
-
-      - name: Save build caches
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            .build-cache/distfiles
-            .build-cache/bin-pkgs
-          key: omarchy-build-v1-${{ github.run_id }}-${{ github.job }}
 
   smoke-emerge:
     # Real emerge of one rotating package, from master only (see trust model
@@ -308,8 +286,6 @@ jobs:
           docker run --rm \
             -v "$PWD/gentoo:/var/db/repos/omarchy" \
             -v "$PWD/overlay-staging:/staging" \
-            -v "$PWD/.build-cache/distfiles:/var/cache/distfiles" \
-            -v "$PWD/.build-cache/bin-pkgs:/var/cache/binpkgs" \
             gentoo/stage3 bash -c '
               set -eu
               command -v getuto >/dev/null && getuto || true
@@ -318,21 +294,12 @@ jobs:
               mkdir -p /etc/portage/repos.conf
               ln -sf /usr/share/portage/config/repos.conf /etc/portage/repos.conf/gentoo.conf
               printf "[omarchy]\nlocation = /var/db/repos/omarchy\nmasters = gentoo\nauto-sync = off\n" > /etc/portage/repos.conf/omarchy.conf
-              echo "FEATURES=\"\${FEATURES} buildpkg\"" >> /etc/portage/make.conf
-              emerge --quiet -k dev-util/pkgdev
+              emerge --quiet dev-util/pkgdev
               cd /var/db/repos/omarchy
               pkgdev manifest --force
               rm -rf /var/db/repos/omarchy/metadata/md5-cache
               cp -a /var/db/repos/omarchy/. /staging/
             '
-
-      - name: Save build caches
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            .build-cache/distfiles
-            .build-cache/bin-pkgs
-          key: omarchy-build-v1-${{ github.run_id }}-${{ github.job }}
 
       - name: Commit and push the overlay branch
         env:
