@@ -113,7 +113,8 @@ jobs:
               ln -sf /usr/share/portage/config/repos.conf /etc/portage/repos.conf/gentoo.conf
               printf "[omarchy]\nlocation = /var/db/repos/omarchy\nmasters = gentoo\nauto-sync = off\n" > /etc/portage/repos.conf/omarchy.conf
               emerge --quiet dev-util/pkgdev
-              pkgdev manifest --force /var/db/repos/omarchy
+              cd /var/db/repos/omarchy
+              pkgdev manifest --force
               pkgcheck scan --cache-dir /tmp/pkgcheck-cache --verbose /var/db/repos/omarchy
               mapfile -t atoms < <(
                 find /var/db/repos/omarchy -name "*.ebuild" -not -path "*/metadata/*" -printf "%h\n" \
@@ -233,7 +234,8 @@ jobs:
               ln -sf /usr/share/portage/config/repos.conf /etc/portage/repos.conf/gentoo.conf
               printf "[omarchy]\nlocation = /var/db/repos/omarchy\nmasters = gentoo\nauto-sync = off\n" > /etc/portage/repos.conf/omarchy.conf
               emerge --quiet dev-util/pkgdev
-              pkgdev manifest --force /var/db/repos/omarchy
+              cd /var/db/repos/omarchy
+              pkgdev manifest --force
               rm -rf /var/db/repos/omarchy/metadata/md5-cache
               cp -a /var/db/repos/omarchy/. /staging/
             '
@@ -313,4 +315,32 @@ jobs:
           else
             gh issue create --repo "$GITHUB_REPOSITORY" \
               --title "$TITLE" --body "$body" --label "gentoo-overlay"
+          fi
+
+  close-loop:
+    # The green half of the failure loop: once every gate passes, close the
+    # tracking issue the report job opened, so an open issue always means
+    # "master is broken right now".
+    needs: [lint, smoke-emerge, mirror, sync-check]
+    if: >-
+      ${{
+        always() &&
+        github.event_name != 'pull_request' &&
+        !contains(needs.*.result, 'failure')
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close the gates-failing issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          title="Gentoo overlay: automated gates failing (automated)"
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" \
+            --search "$title in:title state:open" --json number --jq '.[0].number' || true)
+          if [[ -n "$existing" ]]; then
+            gh issue close "$existing" --repo "$GITHUB_REPOSITORY" \
+              --comment "All gates green in run ${{ github.run_id }}; closing automatically."
+          else
+            echo "no open failure issue"
           fi
