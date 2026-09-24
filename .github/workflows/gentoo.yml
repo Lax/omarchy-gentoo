@@ -67,10 +67,10 @@ jobs:
     # pattern upstream's test.yml uses for its Arch container. No distfiles
     # are fetched here; the nightly job owns Manifest generation.
     if: github.event_name != 'schedule'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           persist-credentials: false
           submodules: recursive
@@ -120,7 +120,7 @@ jobs:
         run: sudo rm -rf "$GITHUB_WORKSPACE" && mkdir -p "$GITHUB_WORKSPACE"
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           persist-credentials: false
           submodules: recursive
@@ -218,10 +218,10 @@ jobs:
     # base-devel ships neither git (so the container cannot clone itself)
     # nor node (so the JS checkout actions cannot run inside it either).
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           persist-credentials: false
           submodules: recursive
@@ -241,10 +241,10 @@ jobs:
     # queue from bin/ai-port --list-open, with skips and blockers. This issue
     # is what coding agents pick work from; keep it honest.
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           persist-credentials: false
           submodules: recursive
@@ -309,7 +309,7 @@ jobs:
         run: sudo rm -rf "$GITHUB_WORKSPACE" && mkdir -p "$GITHUB_WORKSPACE"
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           persist-credentials: false
           submodules: recursive
@@ -398,7 +398,7 @@ jobs:
         github.event_name != 'pull_request' &&
         (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled'))
       }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: File a failure issue
         env:
@@ -439,7 +439,7 @@ jobs:
         !contains(needs.*.result, 'failure') &&
         !contains(needs.*.result, 'cancelled')
       }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Close the gates-failing issue
         env:
