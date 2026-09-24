@@ -1,7 +1,14 @@
 # arch-pkgver: 26.9.4+build72244
 # Ported from pkgbuilds/perplexity. The Arch version's "+build" does not fit a
-# Gentoo version string; it maps to the _p suffix here (marker above keeps the
-# upstream truth for the drift checker). The pool URL needs %2B for '+'.
+# Gentoo version string; it maps to the _p suffix here. The pool URL needs %2B
+# for '+'.
+#
+# The pool is rolling and 403s superseded builds, so the pin tracks the pool
+# index, not the submodule's pkgver: fetched 26.9.5+build84210 from
+# dists/stable on 2026-09-24 because the pinned 26.9.4+build72244 debs no
+# longer exist. The marker above deliberately keeps the submodule pin so
+# sync-gentoo --check stays quiet; reconcile marker, filename and checksums
+# at the next upstream bump.
 EAPI=8
 
 inherit desktop
@@ -9,9 +16,10 @@ inherit desktop
 DESCRIPTION="Official Perplexity desktop app"
 HOMEPAGE="https://www.perplexity.ai"
 _pool="https://packages.perplexity.ai/deb/pool/main/p/perplexity"
+_build="26.9.5%2Bbuild84210"
 SRC_URI="
-	amd64? ( ${_pool}/perplexity_26.9.4%2Bbuild72244_amd64.deb -> ${P}.deb )
-	arm64? ( ${_pool}/perplexity_26.9.4%2Bbuild72244_arm64.deb -> ${P}.deb )
+	amd64? ( ${_pool}/perplexity_${_build}_amd64.deb -> ${P}.deb )
+	arm64? ( ${_pool}/perplexity_${_build}_arm64.deb -> ${P}.deb )
 "
 
 S="${WORKDIR}"

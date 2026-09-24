@@ -14,4 +14,5 @@ omarchy-keyring	arch-only	pacman keyring payload; meaningless under Portage
 linux-firmware-cirrus	arch-only	repackage of an Arch channel package (archive.archlinux.org payload)
 xpadneo-dkms	wave3	kernel module; DKMS wave
 omarchy-nvim	blocked	builds a networked nvim plugin tree at install time; needs an offline redesign
+tmog-bin	blocked	upstream stopped publishing a Linux build (tmog.org 1.0.0 serves macOS/Windows only; the pinned 0.1.1 tarball 404s); re-check when Linux returns
 spotify	blocked	no Gentoo provider ships libcurl-gnutls.so.4; needs a dedicated compat package
