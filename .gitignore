@@ -1,0 +1,4 @@
+# Local agent/session state
+.v2c/
+.video_agent/
+.zcode/
