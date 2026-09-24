@@ -1,0 +1,26 @@
+From: omarchy-gentoo overlay team <hello@omarchy.org>
+Subject: [PATCH] sddm theme: probe the session name via NameRole, not Qt.DisplayRole
+
+SDDM's SessionModel::data() never implements Qt::DisplayRole (it falls
+through to the default branch and returns an empty QVariant), so the
+"uwsm" probe below always compared against an empty string, never
+matched, and sessionIndex degraded to sessionModel.lastIndex. On a box
+that also ships GNOME sessions, the greeter therefore logged the user
+into whatever session was used last. The display name lives in NameRole
+(Qt::UserRole + 4; enum order verified against sddm v0.21.0 and the
+Gentoo snapshot dfa5315fd600760f8f3abddf7fb704202ffb07b3).
+--- a/default/sddm/omarchy/Main.qml
++++ b/default/sddm/omarchy/Main.qml
+@@ -11,7 +11,11 @@
+   property bool loginFailed: false
+   property int sessionIndex: {
+     for (var i = 0; i < sessionModel.rowCount(); i++) {
+-      var name = (sessionModel.data(sessionModel.index(i, 0), Qt.DisplayRole) || "").toString()
++      // SDDM's SessionModel leaves Qt.DisplayRole unimplemented (always
++      // empty); the display name lives in NameRole (Qt::UserRole + 4).
++      // Probing DisplayRole made this loop dead code, and every login
++      // fell back to the last-used session.
++      var name = (sessionModel.data(sessionModel.index(i, 0), Qt.UserRole + 4) || "").toString()
+       if (name.indexOf("uwsm") !== -1)
+         return i
+     }

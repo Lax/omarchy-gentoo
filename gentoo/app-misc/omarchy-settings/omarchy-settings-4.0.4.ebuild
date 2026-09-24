@@ -74,14 +74,16 @@ OMARCHY_ETC_KEEP=(
 src_configure() { :; }
 src_compile() { :; }
 
-# The three support helpers this package ships in common with upstream are
-# patched for portage here too (the patch set lives on the omarchy meta
-# package; these two files target the helpers only).
+# Patches for portage: the two helpers this package ships in common with
+# upstream (the wider patch set lives on the omarchy meta package), plus a
+# fix for the SDDM theme's session pick (upstream probes Qt.DisplayRole,
+# which SDDM's SessionModel never implements).
 src_prepare() {
 	default
 	eapply \
 		"${FILESDIR}"/omarchy-gentoo-debug.patch \
-		"${FILESDIR}"/omarchy-gentoo-upload-log.patch
+		"${FILESDIR}"/omarchy-gentoo-upload-log.patch \
+		"${FILESDIR}"/omarchy-gentoo-sddm-session-role.patch
 }
 
 src_install() {
@@ -179,11 +181,11 @@ src_install() {
 	insinto "${om}/default"
 	doins -r default/.
 
-	# SDDM theme, session file and Hyprland session wrapper.
+	# SDDM theme, session file and Hyprland session wrapper. doins -r already
+	# yields dirs 0755 / files 0644; the greeter runs as the sddm user and
+	# needs the directory execute bit, so never fperms -R 0644 over the tree.
 	insinto /usr/share/sddm/themes
 	doins -r default/sddm/omarchy
-	fperms -R 0755 /usr/share/sddm/themes/omarchy
-	fperms -R 0644 /usr/share/sddm/themes/omarchy
 	insinto /usr/share/sddm
 	doins default/sddm/hyprland.lua
 	# Upstream drops this in /usr/local/share (ISO orchestrator territory);
@@ -195,8 +197,6 @@ src_install() {
 	# installed. plymouthd.conf is Arch-specific and intentionally not shipped.
 	insinto /usr/share/plymouth/themes/omarchy
 	doins -r default/plymouth/.
-	fperms -R 0755 /usr/share/plymouth/themes/omarchy
-	fperms -R 0644 /usr/share/plymouth/themes/omarchy
 
 	# System fallback font (used by boot/lock screens).
 	insinto /usr/share/fonts/omarchy
