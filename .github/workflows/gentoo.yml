@@ -15,7 +15,8 @@ name: Gentoo overlay
 # Trust model: PRs may change what the overlay contains (ebuilds), and the
 # lint job only ever parses that content with repo-owned tooling inside a
 # stock gentoo/stage3 container. Real emerge runs (which execute ebuild code)
-# happen exclusively from master: the on-demand smoke job and the mirror.
+# happen exclusively from master: the smoke and mirror jobs, both
+# self-hosted.
 # Build caches (distfiles, locally built binary packages, ccache) persist
 # between runs to keep the desktop-sized closures affordable; everything in
 # them was produced by earlier runs of this same pipeline, never fetched
@@ -295,10 +296,18 @@ jobs:
 
   mirror:
     # Publish: regenerate Manifests and fast-forward the `overlay` branch
-    # whose tree root is the overlay users sync.
+    # whose tree root is the overlay users sync. Runs self-hosted next to
+    # the smoke job: Manifest generation reuses the shared distfiles volume
+    # instead of re-downloading ~3.5GB on every push, and the single runner
+    # serializes mirrors that GitHub-hosted runners could run in parallel.
+    # Publication follows the runner machine's availability - the same
+    # trade the smoke makes.
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, omarchy-smoke]
     steps:
+      - name: Reset workspace (stage3 writes root-owned md5-cache into the tree)
+        run: sudo rm -rf "$GITHUB_WORKSPACE" && mkdir -p "$GITHUB_WORKSPACE"
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -307,19 +316,34 @@ jobs:
 
       - name: Build the overlay tree with fresh Manifests (stage3)
         run: |
+          mkdir -p /data/cache/omarchy-runner/distfiles /data/cache/omarchy-runner/binpkgs
           mkdir -p "$PWD/overlay-staging"
-          docker run --rm \
+          docker run --rm --network host \
             -v "$PWD/gentoo:/var/db/repos/omarchy" \
             -v "$PWD/overlay-staging:/staging" \
+            -v /data/cache/omarchy-runner/distfiles:/var/cache/distfiles \
+            -v /data/cache/omarchy-runner/binpkgs:/var/cache/binpkgs \
             gentoo/stage3 bash -c '
               set -eu
               command -v getuto >/dev/null && getuto || true
-              emerge-webrsync -q
-              test -d /var/db/repos/gentoo/profiles || { emerge-webrsync; test -d /var/db/repos/gentoo/profiles; }
+              # Same self-hosted network facts as the smoke job: aliyun for
+              # the tree snapshot and distfiles, the local proxy for github
+              # release assets. The distfiles volume is shared with smoke,
+              # so most runs fetch nothing.
+              echo "MAKEOPTS=\"-j\$(nproc)\"" >> /etc/portage/make.conf
+              echo "FEATURES=\"\${FEATURES} buildpkg\"" >> /etc/portage/make.conf
+              echo "GENTOO_MIRRORS=\"https://mirrors.aliyun.com/gentoo/\"" >> /etc/portage/make.conf
+              echo "http_proxy=\"http://127.0.0.1:64540\"" >> /etc/portage/make.conf
+              echo "https_proxy=\"http://127.0.0.1:64540\"" >> /etc/portage/make.conf
               mkdir -p /etc/portage/repos.conf
               ln -sf /usr/share/portage/config/repos.conf /etc/portage/repos.conf/gentoo.conf
+              # Keyserver unreachable from this site; getuto already
+              # provisioned the offline trust keys (see smoke job).
+              printf "sync-openpgp-key-refresh = no\n" >> /etc/portage/repos.conf/gentoo.conf
               printf "[omarchy]\nlocation = /var/db/repos/omarchy\nmasters = gentoo\nauto-sync = off\n" > /etc/portage/repos.conf/omarchy.conf
-              emerge --quiet dev-util/pkgdev
+              emerge-webrsync -q
+              test -d /var/db/repos/gentoo/profiles || { emerge-webrsync; test -d /var/db/repos/gentoo/profiles; }
+              emerge --quiet -k dev-util/pkgdev
               cd /var/db/repos/omarchy
               pkgdev manifest --force
               rm -rf /var/db/repos/omarchy/metadata/md5-cache
