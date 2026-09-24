@@ -1,4 +1,9 @@
-# omarchy-gentoo
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo/omarchy-gentoo-lockup-dark.svg">
+    <img src="assets/logo/omarchy-gentoo-lockup-light.svg" alt="Omarchy on Gentoo — Omarchy packages for Gentoo Linux" width="640">
+  </picture>
+</h1>
 
 Omarchy packages for Gentoo Linux, as a source-based ebuild overlay.
 
@@ -47,3 +52,13 @@ helpers/       conversion rules and ported/skipped bookkeeping
 - Every 3h, `Upstream sync` advances the submodule pin, reconciles ebuild versions against the new recipes, and pushes to master — filing an agent-actionable issue whenever a rename needs judgement.
 - Nightly, the overlay loop really emerges one rotating package in a fresh Gentoo stage3 on the self-hosted runner (gated on the drift check), re-checks for drift, files the porting backlog as an issue, and mirrors `gentoo/` to the `overlay` branch on push.
 - Any gate failure files an issue with the run link. Fix, push, and the next green run closes the loop.
+
+## Branding
+
+The project is **Omarchy on Gentoo** — an intentional echo of Ruby on
+Rails, by the same author — while the repository slug stays
+`omarchy-gentoo` (lowercase, hyphenated) and the Portage repository users
+configure is `omarchy`. The mark is the JetBrains Mono **g** — the
+wordmark's own typeface — banded from omarchy green into Gentoo purple.
+Canonical forms, palette, and asset inventory live in
+[`assets/logo/README.md`](assets/logo/README.md).
