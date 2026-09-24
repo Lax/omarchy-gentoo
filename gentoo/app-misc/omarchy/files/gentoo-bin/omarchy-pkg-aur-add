@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# omarchy:summary=Install packages from the AUR if they are missing
+# omarchy:args=<packages...>
+# Gentoo port: no AUR — route through the regular repositories instead.
+
+echo "The AUR does not exist on Gentoo; use omarchy-pkg-add with repository atoms:" >&2
+echo "  omarchy-pkg-add $*" >&2
+echo "or enable an overlay that packages it: eselect repository list" >&2
+exit 1

@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# omarchy:summary=Update AUR packages if any are installed
+# Gentoo port: no AUR. Third-party overlays are git repositories fetched by
+# 'emerge --sync', which omarchy-update-system-pkgs already runs.
+
+echo -e "\e[33mNo AUR on Gentoo: third-party overlays update with 'emerge --sync'.\e[0m"
+echo

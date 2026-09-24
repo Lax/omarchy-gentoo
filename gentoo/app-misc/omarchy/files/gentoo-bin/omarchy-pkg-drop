@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# omarchy:summary=Remove all the named packages from the system if they're installed (otherwise ignore).
+# omarchy:args=<packages...>
+# omarchy:requires-sudo=true
+# Gentoo port: pacman -Rns -> emerge --deselect + emerge --depclean, which
+# removes the atom only once nothing depends on it anymore.
+
+installed=()
+
+for pkg in "$@"; do
+  if qlist -Ie "$pkg" &>/dev/null; then
+    installed+=("$pkg")
+  fi
+done
+
+if (( ${#installed[@]} > 0 )); then
+  sudo emerge --deselect "${installed[@]}"
+  sudo emerge --depclean "${installed[@]}"
+fi

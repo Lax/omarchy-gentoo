@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="project">
+		<email>hello@omarchy.org</email>
+		<name>Omarchy</name>
+	</maintainer>
+	<longdescription>
+		Installer/manager for self-hosted web applications: a single
+		static binary plus an optional background service unit. Requires
+		Docker; the service is left to the admin to enable.
+	</longdescription>
+	<upstream>
+		<remote-id type="github">basecamp/once</remote-id>
+	</upstream>
+</pkgmetadata>

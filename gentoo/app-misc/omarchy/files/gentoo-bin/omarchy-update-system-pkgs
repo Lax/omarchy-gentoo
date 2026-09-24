@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# omarchy:summary=Update system packages with portage
+# omarchy:requires-sudo=true
+# Gentoo port: pacman -Syu -> emerge --sync + --update --deep --newuse @world.
+# pacman's --overwrite dance and the conflict handler have no portage
+# counterpart: portage refuses real collisions on its own and user-edited
+# config goes through CONFIG_PROTECT/dispatch-conf.
+
+set -e
+
+echo -e "\e[32m\nUpdate system packages\e[0m"
+
+if (( EUID == 0 )); then
+  emerge --sync
+  emerge --update --newuse --deep @world
+else
+  sudo emerge --sync
+  sudo emerge --update --newuse --deep @world
+fi

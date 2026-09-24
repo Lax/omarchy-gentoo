@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# omarchy:summary=Show a fuzzy-finder TUI for picking new packages to install.
+# omarchy:requires-sudo=true
+# Gentoo port: eix replaces pacman -Slq as the available-package feed, and
+# emerge --noreplace replaces pacman -S.
+
+fzf_args=(
+  --multi
+  --preview 'eix -e {1}'
+  --preview-label='alt-p: toggle description, alt-j/k: scroll, tab: multi-select'
+  --preview-label-pos='bottom'
+  --preview-window 'down:65%:wrap'
+  --bind 'alt-p:toggle-preview'
+  --bind 'alt-d:preview-half-page-down,alt-u:preview-half-page-up'
+  --bind 'alt-k:preview-up,alt-j:preview-down'
+  --color 'pointer:green,marker:green'
+)
+
+pkg_names=$(eix --only-names -# | fzf "${fzf_args[@]}")
+
+if [[ -n $pkg_names ]]; then
+  source omarchy-sudo-keepalive
+
+  # Convert newline-separated selections to space-separated for emerge
+  echo "$pkg_names" | tr '\n' ' ' | xargs sudo emerge --noreplace
+  omarchy-show-done
+fi

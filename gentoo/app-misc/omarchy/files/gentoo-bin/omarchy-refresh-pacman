@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# omarchy:summary=Refresh repositories and update all packages
+# omarchy:requires-sudo=true
+# Gentoo port: overwriting pacman.conf/mirrorlist for the dedicated mirrors has
+# no equivalent; this refreshes every repository (including overlays) and
+# updates @world instead.
+
+set -e
+
+echo "Refreshing repositories (emerge --sync)"
+echo
+
+sudo emerge --sync
+
+omarchy-hook pre-refresh-pacman
+
+echo -e "\e[32m\nUpdate system packages\e[0m"
+sudo emerge --update --newuse --deep @world

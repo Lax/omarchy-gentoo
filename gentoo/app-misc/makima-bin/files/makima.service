@@ -1,0 +1,12 @@
+[Unit]
+Description=Makima remapping daemon
+
+[Service]
+Type=simple
+Environment=MAKIMA_CONFIG=%h/.config/makima
+ExecStart=/usr/bin/makima
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target

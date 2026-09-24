@@ -275,8 +275,10 @@ cmd_self_test() {
   check "row: cursor-bin" $'dev-util\tcursor-bin' "$(gentoo_row cursor-bin)"
   check "queue: omarchy-keyring not open" "0" \
     "$(cmd_list_open | grep -c 'omarchy-keyring.*OPEN' || true)"
+  # Can't anchor to one package name: whatever is named here gets ported and
+  # breaks the canary. Assert the queue still lists unported bin packages.
   check "queue: unported bin pkg listed" "1" \
-    "$(cmd_list_open | awk '$3 == "OPEN" && $2 == "once-bin"' | grep -c once-bin || true)"
+    "$(cmd_list_open | awk '$3 == "OPEN" && $1 == "bin" {c++} END {print (c>0)?1:0}')"
   check "queue: ported omazed not open" "0" \
     "$(cmd_list_open | awk '$3 == "OPEN" && $2 == "omazed"' | grep -c omazed || true)"
   local brief

@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# omarchy:summary=Retry a system package update that hit a conflict
+# omarchy:hidden=true
+# Gentoo port: pacman refuses to install over files it doesn't own and moves
+# them aside here; portage has no such failure mode, and config edits are
+# handled by dispatch-conf. Kept as an explanatory no-op so internal callers
+# (if any drift in) fail softly instead of missing-command.
+
+echo "Not needed on Gentoo: portage handles collisions itself and protects" >&2
+echo "user-edited config via CONFIG_PROTECT (review with dispatch-conf)." >&2
+exit 0

@@ -65,18 +65,19 @@ Gentoo package, e.g. in `/etc/portage/package.license`:
 ## Scope: what is ported, and what deliberately is not
 
 Covered by the first waves: every `arch=any` package and the binary
-repackages (`-bin` and friends). Out of scope for now, each with a recorded
+repackages (`-bin` and friends), plus the legacy desktop stack — the
+**`omarchy` / `omarchy-settings` meta-pair** ships Gentoo-adapted
+(portage-ported bin scripts, CONFIG_PROTECT-guarded /etc drop-ins, the
+Arch boot stack dropped). Out of scope for now, each with a recorded
 reason in `helpers/gentoo-skip.tsv`:
 
-- **`omarchy` / `omarchy-settings` meta-packages** — their pacman hooks,
-  mkinitcpio/limine/snapper integration is a distro port, not a package port.
-- **Kernels** (`linux-omarchy*`) — same class of work.
+- **Kernels** (`linux-omarchy*`) — a distro port, not a package port.
 - **Packages Gentoo already ships** (yaru-icon-theme, nautilus-open-any-terminal,
   python-sounddevice) — no point shadowing the monorepo.
 - **spotify** — blocked: no Gentoo package provides `libcurl-gnutls.so.4`;
   needs a dedicated compat package first.
-- **Source-built packages** (ghostty, yay, DKMS drivers, ...) — wave 3;
-  real porting work, eclass by eclass.
+- **Source-built packages** (ghostty, yay, DKMS drivers, ...) — real porting
+  work, eclass by eclass.
 
 `bin/ai-port --list-open` prints the live queue (open work vs skips vs
 shipped); the nightly coverage job files the same list as a GitHub issue.

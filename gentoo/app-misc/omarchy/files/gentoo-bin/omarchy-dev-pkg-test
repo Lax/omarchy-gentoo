@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# omarchy:summary=Build and install dev packages from the current checkout
+# Gentoo port: makepkg + pacman -U has no equivalent here. Dev testing works
+# off a git checkout of omacom/omarchy with OMARCHY_PATH pointed at it; an
+# edge (live) ebuild channel is not packaged yet — see ROADMAP.md.
+
+echo "No dev packages on Gentoo. Two options:" >&2
+echo "  1. git clone https://github.com/omacom/omarchy and export" >&2
+echo "     OMARCHY_PATH=/path/to/checkout (the dev-checkout flow)" >&2
+echo "  2. wait for the edge channel — see ROADMAP.md in the overlay" >&2
+exit 1

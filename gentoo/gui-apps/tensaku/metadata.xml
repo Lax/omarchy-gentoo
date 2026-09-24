@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="project">
+		<email>hello@omarchy.org</email>
+		<name>Omarchy</name>
+	</maintainer>
+	<longdescription>
+		Modern Wayland screenshot annotation tool (a maintained fork of
+		Satty). Omarchy's default screenshot editor: omarchy-capture-screenshot
+		hands captures to tensaku-edit for markup. Ships the tensaku binary,
+		the tensaku-edit wrapper, desktop entry, icon, man page and shell
+		completions; upstream omarchy-pkgs builds the same release source
+		(pinned pkgver).
+	</longdescription>
+	<upstream>
+		<remote-id type="github">jondkinney/tensaku</remote-id>
+	</upstream>
+</pkgmetadata>

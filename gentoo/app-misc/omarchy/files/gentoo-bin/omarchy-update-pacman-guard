@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# omarchy:summary=Prevent direct pacman system upgrades from bypassing omarchy update.
+# Gentoo port: there is no second package manager to guard against — emerge is
+# the sanctioned pipeline and the libalpm hook that ran this script does not
+# exist on portage. Kept as a no-op for callers.
+
+exit 0

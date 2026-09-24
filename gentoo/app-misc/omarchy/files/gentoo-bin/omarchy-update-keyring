@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# omarchy:summary=Ensure package signatures can be verified (no-op on Gentoo)
+# omarchy:requires-sudo=true
+# Gentoo port: portage verifies per-repository Manifest hashes; there is no
+# pacman keyring to fetch or refresh. Kept as a no-op so omarchy update keeps
+# its shape.
+
+echo "Keys are correct"

@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# omarchy:summary=Review and optionally remove orphaned system packages after updates
+# omarchy:requires-sudo=true
+# Gentoo port: pacman -Qtdq -> emerge --depclean candidates; the gum confirm
+# and TTY guard are upstream verbatim.
+
+set -e
+
+removed=$(emerge --pretend --depclean 2>/dev/null | sed -n 's/^Number to remove: *\([0-9]*\).*/\1/p')
+(( ${removed:-0} > 0 )) || exit 0
+
+echo -e "\e[32m\nOrphan system packages\e[0m"
+emerge --pretend --depclean 2>/dev/null | sed -n '/The following packages are currently installed/,$p' || true
+echo
+
+if [[ ! -t 0 || ! -t 1 ]]; then
+  echo "${removed} orphaned package(s) found. Re-run omarchy-update-orphan-pkgs in a terminal to review/remove them."
+  echo
+  exit 0
+fi
+
+if ! gum confirm --default=false "Remove ${removed} orphaned package(s)?"; then
+  echo "Keeping orphaned packages."
+  echo
+  exit 0
+fi
+
+echo -e "\e[32m\nRemoving orphan system packages\e[0m"
+sudo emerge --depclean
+echo

@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# omarchy:summary=Print when system packages were last upgraded
+# Gentoo port: /var/log/emerge.log replaces /var/log/pacman.log; it is
+# portage-owned (0640), hence sudo.
+
+line=$(sudo grep -E '::: completed emerge' /var/log/emerge.log 2>/dev/null | tail -1 || true)
+if [[ -z $line ]]; then
+  echo "No completed merges found in /var/log/emerge.log" >&2
+  exit 1
+fi
+
+ts=${line%%:*}
+[[ $ts =~ ^[0-9]+$ ]] || { echo "Could not parse the last merge timestamp" >&2; exit 1; }
+
+date -d "@$ts" "+%A, %B %d %Y at %H:%M"

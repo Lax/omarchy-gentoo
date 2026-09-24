@@ -1,0 +1,21 @@
+--- a/bin/omarchy-remove-dev-env
++++ b/bin/omarchy-remove-dev-env
+@@ -10,7 +10,8 @@
+ fi
+ 
+ remove_php() {
+-  sudo pacman -Rns --noconfirm php composer php-sqlite xdebug 2>/dev/null || true
++  # Gentoo port: sqlite is a dev-lang/php USE flag, xdebug is dev-php/pecl-xdebug.
++  sudo emerge --depclean dev-lang/php dev-php/composer dev-php/pecl-xdebug 2>/dev/null || true
+ }
+ 
+ case "$1" in
+@@ -50,7 +51,7 @@
+   ;;
+ symfony)
+   echo -e "Removing Symfony CLI...\n"
+-  sudo pacman -Rns --noconfirm symfony-cli 2>/dev/null || true
++  sudo emerge --depclean dev-php/symfony-cli 2>/dev/null || true
+   ;;
+ python)
+   echo -e "Removing Python...\n"

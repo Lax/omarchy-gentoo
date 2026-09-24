@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# omarchy:summary=Install Gentoo packages if they are missing
+# omarchy:args=<packages...>
+# omarchy:examples=omarchy pkg add app-misc/jq sys-apps/bat
+# omarchy:requires-sudo=true
+# Gentoo port: pacman -S --needed -> emerge --noreplace. Atoms must be
+# category-qualified (app-misc/jq); qlist -Ie is the installed check.
+
+# Upstream migrations and scripts pass Arch package names. Map the ones whose
+# Gentoo atom differs before the emerge; everything else passes through
+# unchanged (an unqualified name resolves whenever the Gentoo PN matches).
+declare -A OMARCHY_ARCH_TO_GENTOO=(
+	[libvips]=media-libs/vips
+	[qt6-imageformats]=dev-qt/qtimageformats
+	[lsp-plugins-lv2]=media-plugins/lsp-plugins
+	[libfprint-git]=sys-auth/libfprint
+	# Intel/AMD/Asahi Vulkan ships in media-libs/mesa (vulkan USE), not as
+	# separate driver packages like on Arch.
+	[vulkan-intel]=media-libs/mesa
+	[vulkan-radeon]=media-libs/mesa
+	[vulkan-asahi]=media-libs/mesa
+	[sof-firmware]=sys-firmware/sof-firmware
+)
+
+if (($#)); then
+  mapped=()
+  for pkg in "$@"; do
+    mapped+=("${OMARCHY_ARCH_TO_GENTOO[$pkg]:-$pkg}")
+  done
+  set -- "${mapped[@]}"
+fi
+
+if omarchy-pkg-missing "$@"; then
+  if (( EUID == 0 )); then
+    emerge --noreplace "$@" || exit 1
+  else
+    sudo emerge --noreplace "$@" || exit 1
+  fi
+fi
+
+for pkg in "$@"; do
+  # Secondary check to handle states where emerge didn't actually register an error
+  if ! qlist -Ie "$pkg" &>/dev/null; then
+    echo -e "\033[31mError: Package '$pkg' did not install\033[0m" >&2
+    exit 1
+  fi
+done
+
+exit 0

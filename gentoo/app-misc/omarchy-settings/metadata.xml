@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="project">
+		<email>hello@omarchy.org</email>
+		<name>Omarchy</name>
+	</maintainer>
+	<longdescription>
+		Omarchy user defaults ported from omacom/omarchy: the config source of
+		truth under /usr/share/omarchy, /etc/skel seeding for new users, package
+		owned /etc drop-ins guarded by portage CONFIG_PROTECT, systemd user
+		units, SDDM/Plymouth theming data, fonts and branding. The Arch-specific
+		boot stack (mkinitcpio, limine, plymouthd.conf, faillock, nsswitch) is
+		deliberately filtered out; see the overlay README for the full mapping.
+	</longdescription>
+	<upstream>
+		<remote-id type="github">omacom/omarchy</remote-id>
+	</upstream>
+</pkgmetadata>

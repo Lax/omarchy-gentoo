@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="project">
+		<email>hello@omarchy.org</email>
+		<name>Omarchy</name>
+	</maintainer>
+	<longdescription>
+		Chromium binary release with Omarchy patches, rewrapped from
+		upstream's pacman-format payload.
+	</longdescription>
+	<upstream>
+		<remote-id type="github">omacom-io/omarchy-chromium</remote-id>
+	</upstream>
+</pkgmetadata>

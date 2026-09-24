@@ -1,0 +1,35 @@
+# Gentoo port: migrations listed here are not applicable on Gentoo. The
+# patched bin/omarchy-migrate skips them (logging one line) and marks them
+# done, so they neither run nor linger as pending. One filename per line.
+#
+# 1781984677 — Normalize Snapper snapshot services: repairs the upstream
+# limine + snapper snapshot stack, which this overlay intentionally does not
+# port (README "intentionally not ported" #2), and which is meaningless on
+# non-Btrfs roots.
+1781984677.sh
+# 1784672586 — pacman transaction swapping quickshell for quickshell-git:
+# pointless here (the ::guru quickshell build has the fixed kill behavior
+# already) and superseded by 1787399318, which no-ops the same way.
+1784672586.sh
+# 1785637426 — omarchy-pkg-add omacalc: omacalc is not ported yet (P2
+# candidate); the accompanying gnome-calculator drop is not worth a fail.
+1785637426.sh
+# 1786273938 — omarchy-pkg-add herdr: herdr is not ported (P4, AI ecosystem).
+1786273938.sh
+# 1786355450 — omarchy-pkg-add ttfx: ttfx is not ported yet (P2 candidate).
+1786355450.sh
+# 1786952219 — pacman swap of Arch's mise for omarchy's mise-bin: Gentoo has
+# no mise package at all (manual install per README), so the swap cannot and
+# must not happen.
+1786952219.sh
+# 1787589206 — edits /etc/pacman.conf, which does not exist on Gentoo; the
+# script's final guard then ends the run nonzero and would stay pending
+# forever.
+1787589206.sh
+# 1789325478 — installs the linux-omarchy kernel and a Limine boot entry:
+# kernels and the bootloader are the user's on Gentoo (README "intentionally
+# not ported" #3).
+1789325478.sh
+# 1789444024 — installs linux-omarchy/linux-t2 kernel headers: same kernel
+# policy as 1789325478.
+1789444024.sh

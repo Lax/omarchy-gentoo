@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# omarchy:summary=Reinstall all default Omarchy packages
+# omarchy:requires-sudo=true
+# Gentoo port: re-emerging the meta package restores its whole dependency set.
+# Downgrading to the stable channel (-Suu) is not portable — portage only
+# downgrades to versions that are keyworded in the repositories — so that part
+# is a documented deviation.
+
+set -e
+
+sudo emerge --update --newuse --deep --noreplace app-misc/omarchy

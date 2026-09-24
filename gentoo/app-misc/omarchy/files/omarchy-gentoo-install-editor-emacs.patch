@@ -1,0 +1,15 @@
+--- a/bin/omarchy-install-editor-emacs
++++ b/bin/omarchy-install-editor-emacs
+@@ -1,9 +1,10 @@
+ #!/bin/bash
+ 
+-# omarchy:summary=Install Emacs with Omarchy theme and font integration via the omarchy-emacs AUR package
++# omarchy:summary=Install Emacs with Omarchy theme and font integration
++# Gentoo port: the omarchy-emacs ebuild lives in the omarchy overlay.
+ 
+ echo "Installing Emacs..."
+-omarchy-pkg-aur-add omarchy-emacs && omarchy-install-emacs
++omarchy-pkg-add app-editors/omarchy-emacs && omarchy-install-emacs
+ 
+ # emacsclient opens a frame on the running daemon, not a second Emacs
+ setsid uwsm-app -- gtk-launch emacsclient >/dev/null 2>&1 &

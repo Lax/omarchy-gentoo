@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="project">
+		<email>hello@omarchy.org</email>
+		<name>Omarchy</name>
+	</maintainer>
+	<longdescription>
+		A tool for glamorous shell scripts. Neither ::gentoo nor ::guru carries
+		it, so this is an overlay-original translation of the frozen legacy
+		repo's proven ebuild, with the Go module graph self-hosted as a distfile.
+	</longdescription>
+	<upstream>
+		<remote-id type="github">charmbracelet/gum</remote-id>
+	</upstream>
+</pkgmetadata>

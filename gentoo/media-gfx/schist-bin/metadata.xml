@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="project">
+		<email>hello@omarchy.org</email>
+		<name>Omarchy</name>
+	</maintainer>
+	<longdescription>
+		Layered image editor with PSD and Affinity support, installed from
+		upstream's prebuilt pacman-format payload.
+	</longdescription>
+	<upstream>
+		<remote-id type="github">Infrawrench/schist</remote-id>
+	</upstream>
+</pkgmetadata>

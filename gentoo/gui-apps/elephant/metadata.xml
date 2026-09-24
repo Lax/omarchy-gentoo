@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="project">
+		<email>hello@omarchy.org</email>
+		<name>Omarchy</name>
+	</maintainer>
+	<longdescription>
+		General purpose datasource and executor: the provider daemon behind the
+		walker launcher used by Omarchy. Builds the main binary and every
+		provider plugin (menus, calc, clipboard, bluetooth, ...) from one
+		source; upstream omarchy-pkgs splits them into separate pacman
+		packages, consolidated here into a single ebuild.
+	</longdescription>
+	<upstream>
+		<remote-id type="github">abenz1267/elephant</remote-id>
+	</upstream>
+</pkgmetadata>

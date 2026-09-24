@@ -1,0 +1,20 @@
+--- a/bin/omarchy-setup-security-fingerprint
++++ b/bin/omarchy-setup-security-fingerprint
+@@ -74,14 +74,9 @@
+   exit 1
+ fi
+ 
+-# libfprint-git tracks upstream ahead of the Arch release, so a new reader only
+-# needs a pin bump in omarchy-pkgs. It conflicts with stock libfprint, and
+-# --noconfirm answers that prompt with N; --ask 4 accepts the replacement in
+-# one transaction, so a failed install leaves the existing driver in place.
+-if omarchy-pkg-missing libfprint-git fprintd usbutils; then
+-  echo "Installing required packages..."
+-  sudo pacman -S --needed --noconfirm --ask 4 libfprint-git fprintd usbutils
+-fi
++# Gentoo port: sys-auth/libfprint from the main tree replaces the AUR
++# libfprint-git build; omarchy-pkg-add installs only what is missing.
++omarchy-pkg-add sys-auth/libfprint sys-auth/fprintd sys-apps/usbutils
+ 
+ # Enroll first fingerprint
+ echo -e "\e[32m\nLet's setup your right index finger as the first fingerprint.\e[0m"

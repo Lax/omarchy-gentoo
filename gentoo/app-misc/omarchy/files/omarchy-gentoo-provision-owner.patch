@@ -1,0 +1,14 @@
+--- a/bin/omarchy-provision-owner
++++ b/bin/omarchy-provision-owner
+@@ -681,9 +681,9 @@
+       # Input is only retained when the factory image has one of the features
+       # whose installer deliberately grants access to raw input devices.
+       [[ $group == "docker" ]] && continue
++      # Gentoo port: xpadneo is a kernel module here, not a package.
+       if [[ $group == "input" ]] &&
+-        ! pacman -Qq xpadneo-dkms &>/dev/null &&
+-        ! pacman -Qq ydotool &>/dev/null; then
++        ! qlist -Ie app-misc/ydotool &>/dev/null; then
+         continue
+       fi
+       getent group "$group" >/dev/null || continue

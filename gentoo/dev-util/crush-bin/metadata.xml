@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="project">
+		<email>hello@omarchy.org</email>
+		<name>Omarchy</name>
+	</maintainer>
+	<longdescription>
+		Terminal-based AI coding assistant from Charm. Ships the binary,
+		shell completions and man page from the GoReleaser tarball. The
+		upstream license is FSL-1.1-MIT, shipped in this overlay's
+		licenses/ directory because ::gentoo does not carry it yet.
+	</longdescription>
+	<upstream>
+		<remote-id type="github">charmbracelet/crush</remote-id>
+	</upstream>
+</pkgmetadata>

@@ -1,0 +1,16 @@
+--- a/bin/omarchy-remove-launcher-entry
++++ b/bin/omarchy-remove-launcher-entry
+@@ -84,11 +84,11 @@
+   exit 0
+ fi
+ 
+-if package_name="$(pacman -Qqo "$desktop_file" 2>/dev/null | head -1)" && [[ -n $package_name ]]; then
++if package_name="$(qfile "$desktop_file" 2>/dev/null | cut -d: -f1 | head -1)" && [[ -n $package_name ]]; then
+   display_name="${entry_name:-$desktop_name}"
+   quoted_package="$(printf '%q' "$package_name")"
+   quoted_display="$(printf '%q' "$display_name")"
+-  exec omarchy-launch-floating-terminal-with-presentation "echo Uninstalling $quoted_display...; sudo pacman -Rns $quoted_package"
++  exec omarchy-launch-floating-terminal-with-presentation "echo Uninstalling $quoted_display...; sudo emerge --depclean $quoted_package"
+ fi
+ 
+ if omarchy-cmd-present flatpak && flatpak info "${desktop_file_name%.desktop}" >/dev/null 2>&1; then

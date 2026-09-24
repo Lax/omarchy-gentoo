@@ -1,0 +1,26 @@
+--- a/bin/omarchy-update-restart
++++ b/bin/omarchy-update-restart
+@@ -11,16 +11,14 @@
+ running_kernel=$(uname -r)
+ kernel_updated=true
+ 
+-for kernel in /usr/lib/modules/*/vmlinuz; do
+-  if [[ -f $kernel ]] && pacman -Qo "$kernel" &>/dev/null; then
+-    installed_kernel=$(basename "$(dirname "$kernel")")
++# Gentoo port: kernels install as /usr/lib/modules/<ver> trees (the image
++# lands in /boot via installkernel), so compare the newest module tree with
++# the running release instead of asking pacman who owns the image.
++newest_kernel=$(ls -1 /usr/lib/modules 2>/dev/null | sort -V | tail -1)
+ 
+-    if [[ $installed_kernel == $running_kernel ]]; then
+-      kernel_updated=false
+-      break
+-    fi
+-  fi
+-done
++if [[ -n $newest_kernel && $newest_kernel == "$running_kernel" ]]; then
++  kernel_updated=false
++fi
+ 
+ if [[ $kernel_updated == "true" ]]; then
+   confirm_reboot "Linux kernel has been updated. Reboot?"

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="project">
+		<email>hello@omarchy.org</email>
+		<name>Omarchy</name>
+	</maintainer>
+	<longdescription>
+		Meta package tying the walker launcher to the elephant provider daemon
+		(all providers ship inside gui-apps/elephant on Gentoo).
+	</longdescription>
+	<upstream>
+		<remote-id type="github">omacom/omarchy-pkgs</remote-id>
+	</upstream>
+</pkgmetadata>

@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# omarchy:summary=Returns true if any of the named packages are missing from the system (or false if they're all there).
+# omarchy:args=<packages...>
+# Gentoo port: pacman -Q -> qlist -Ie (exact match on CAT/PN).
+
+for pkg in "$@"; do
+  if ! qlist -Ie "$pkg" &>/dev/null; then
+    exit 0
+  fi
+done
+
+exit 1

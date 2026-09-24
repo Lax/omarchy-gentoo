@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="project">
+		<email>hello@omarchy.org</email>
+		<name>Omarchy</name>
+	</maintainer>
+	<longdescription>
+		World clock plugin for the Omarchy shell: a quickshell QML widget the
+		bar loads from its plugin directory. Portable data files only; the
+		clock logic shells out to python3 at runtime.
+	</longdescription>
+	<upstream>
+		<remote-id type="github">omacom/elsewhen</remote-id>
+	</upstream>
+</pkgmetadata>

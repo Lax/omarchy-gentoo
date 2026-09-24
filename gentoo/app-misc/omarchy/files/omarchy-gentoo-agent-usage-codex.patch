@@ -1,0 +1,39 @@
+# Gentoo port: cap the opencode.db full-table scan by size.
+#
+# omarchy-agent-usage-codex scans opencode's SQLite DB with a full-table
+# LIKE + json_valid() query on every agent-usage-update run, and the agents
+# panel triggers one per refresh interval while holding the scan flock the
+# whole time. On machines with a multi-GB opencode.db the scan takes hours,
+# wedges every concurrent collector behind the flock, and stalls anything
+# else waiting on it (omarchy update ran one as part of migration
+# 1786099804). A scan only gets cached when it completes, so the pile keeps
+# restarting from scratch forever. The scan also only counts
+# providerID == "openai" rows, so gateways and other providers contribute
+# nothing even on a successful pass.
+#
+# Cap the DB size and report the scan as incomplete (never cached) instead
+# of burning a core for hours. Upstream's real fix is chunked/incremental
+# scanning; this keeps the machine usable until then.
+--- a/bin/omarchy-agent-usage-codex
++++ b/bin/omarchy-agent-usage-codex
+@@ -286,6 +286,21 @@
+   if not db.is_file():
+     return True
++
++  # Gentoo port: a full LIKE + json_valid scan costs roughly a minute per
++  # GB, runs again on every panel refresh, and holds the scan flock the
++  # whole time. A scan only reaches the cache once it completes, so a DB
++  # beyond the cap below turns this collector into a permanent 100% CPU
++  # process while everything else queues on its flock. Cap it: report the
++  # opencode part as incomplete (the record omits opencode usage) instead
++  # of scanning. Upstream chunked/incremental scanning is the proper fix.
++  try:
++    db_size = db.stat().st_size
++  except OSError:
++    return False
++  if db_size > 1 << 30:  # 1 GiB
++    print(f"omarchy-agent-usage-codex: opencode.db is {db_size >> 20} MB; skipping the opencode scan", file=sys.stderr)
++    return False
+   try:
+     conn = sqlite3.connect(db.resolve().as_uri() + "?mode=ro", uri=True, timeout=2)
+   except sqlite3.Error:

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="project">
+		<email>hello@omarchy.org</email>
+		<name>Omarchy</name>
+	</maintainer>
+	<longdescription>
+		Input remapping daemon (keyboards, mice, controllers). Ships a
+		udev rule for uinput access, a modules-load drop-in and a per-user
+		systemd unit; upstream's system unit baked in a build-time user.
+	</longdescription>
+	<upstream>
+		<remote-id type="github">cyber-sushi/makima</remote-id>
+	</upstream>
+</pkgmetadata>

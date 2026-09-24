@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# omarchy:summary=One-time upgrade from the v3 line to the quattro release.
+# Gentoo port: this overlay only tracks the quattro (v4) line; there is no v3
+# ebuild and no pacman mirror to repoint. Kept as an explanatory stub so old
+# muscle memory / menus get a clear answer.
+
+echo "This overlay only ships the quattro (v4) line; no v3 upgrade path exists on Gentoo." >&2
+exit 1

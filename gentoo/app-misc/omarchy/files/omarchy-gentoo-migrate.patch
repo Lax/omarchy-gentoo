@@ -1,0 +1,75 @@
+--- a/bin/omarchy-migrate
++++ b/bin/omarchy-migrate
+@@ -31,6 +31,7 @@
+ OMARCHY_PATH="${OMARCHY_PATH:-/usr/share/omarchy}"
+ STATE_DIR="${OMARCHY_MIGRATION_STATE:-$HOME/.local/state/omarchy/migrations}"
+ MIGRATIONS_DIR="$OMARCHY_PATH/migrations"
++SKIP_FILE="$OMARCHY_PATH/gentoo/migrate-skip"
+
+ migration_entries() {
+   [[ -d $MIGRATIONS_DIR ]] || return 0
+@@ -44,14 +45,21 @@
+     printf '%s\t%s\t%s\n' "$filename" "$file" "$STATE_DIR/$filename"
+   done
+ }
+
++gentoo_skips_migration() {
++  # Gentoo port: migrations targeting the Arch-only stack (limine/snapper,
++  # pacman, ...) are listed one filename per line in $SKIP_FILE, shipped by
++  # app-misc/omarchy. See files/gentoo-migrate-skip for the per-entry reasons.
++  [[ -f $SKIP_FILE ]] && grep -qx "$1" "$SKIP_FILE"
++}
++
+ pending_migrations() {
+   local name file marker
+
+   while IFS=$'\t' read -r name file marker; do
+     [[ -n $name ]] || continue
+-    if [[ ! -f $marker ]]; then
++    if [[ ! -f $marker ]] && ! gentoo_skips_migration "$name"; then
+       printf '%s\n' "$name"
+     fi
+   done < <(migration_entries)
+ }
+@@ -68,16 +76,16 @@
+ wait_for_pacman_transaction() {
+-  local lock_file=/var/lib/pacman/db.lck
+-
+-  [[ -e $lock_file ]] || return 0
+-  echo "Waiting for pacman transaction to finish before running Omarchy migrations..."
++  # Gentoo port: portage has no global lock file; a running emerge is the
++  # equivalent signal.
++  pgrep -x emerge &>/dev/null || return 0
++  echo "Waiting for portage to finish before running Omarchy migrations..."
+
+   for _ in {1..900}; do
+-    [[ -e $lock_file ]] || return 0
++    pgrep -x emerge &>/dev/null || return 0
+     sleep 1
+   done
+
+-  echo "Pacman transaction is still running; Omarchy migrations will retry on next login."
++  echo "Portage is still running; Omarchy migrations will retry on next login."
+   exit 0
+ }
+
+ wait_for_pacman_transaction
+@@ -88,12 +96,16 @@
+ while IFS=$'\t' read -r name file marker <&3; do
+   [[ -n $name ]] || continue
+
+   if [[ ! -f $marker ]]; then
+-    echo -e "\e[32m\nRunning migration (${name%.sh})\e[0m"
+-    OMARCHY_PATH="$OMARCHY_PATH" bash -euo pipefail "$file" 3<&-
++    if gentoo_skips_migration "$name"; then
++      echo -e "\e[33mSkipping migration not applicable on Gentoo (${name%.sh})\e[0m"
++    else
++      echo -e "\e[32m\nRunning migration (${name%.sh})\e[0m"
++      OMARCHY_PATH="$OMARCHY_PATH" bash -euo pipefail "$file" 3<&-
++    fi
+     mkdir -p "$(dirname "$marker")"
+     touch "$marker"
+   fi
+ done 3< <(migration_entries)
+
+ # Clear a login-time notification the user left sitting there and then resolved

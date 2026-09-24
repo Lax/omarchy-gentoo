@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# omarchy:summary=Prune superseded versions from the package cache
+# omarchy:requires-sudo=true
+# Gentoo port: paccache -rk2 -> eclean-pkg (app-portage/gentoolkit), which
+# deletes binaries no longer installed; distfiles are the offline fallback so
+# they are left alone by default.
+
+set -e
+
+echo -e "\e[32m\nPrune package cache\e[0m"
+sudo eclean-pkg --quiet || echo -e "\e[33mCould not prune the package cache.\e[0m" >&2
+echo
