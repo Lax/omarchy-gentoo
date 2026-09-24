@@ -45,5 +45,5 @@ helpers/       conversion rules and ported/skipped bookkeeping
 ## How it maintains itself
 
 - Every 3h, `Upstream sync` advances the submodule pin, reconciles ebuild versions against the new recipes, and pushes to master — filing an agent-actionable issue whenever a rename needs judgement.
-- Nightly, the overlay loop really emerges one rotating package in a fresh Gentoo stage3, re-checks for drift, files the porting backlog as an issue, and mirrors `gentoo/` to the `overlay` branch.
+- Nightly, the overlay loop really emerges one rotating package in a fresh Gentoo stage3 on the self-hosted runner (gated on the drift check), re-checks for drift, files the porting backlog as an issue, and mirrors `gentoo/` to the `overlay` branch on push.
 - Any gate failure files an issue with the run link. Fix, push, and the next green run closes the loop.

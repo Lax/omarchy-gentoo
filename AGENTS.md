@@ -44,10 +44,10 @@ tooling cannot disagree with itself.
   rename is not purely mechanical it files a `gentoo-overlay` issue —
   that issue is your work order.
 - **Gentoo overlay** (`gentoo.yml`): nightly smoke emerge of one rotating
-  package, the nightly porting-backlog issue (the queue of unported
-  packages, from `bin/ai-port --list-open`), `sync-check` (fails on ebuild
-  drift), the `overlay` branch mirror, and automatic issue filing on any
-  gate failure.
+  package (self-hosted runner, gated on the drift check), the nightly
+  porting-backlog issue (the queue of unported packages, from
+  `bin/ai-port --list-open`), `sync-check` (fails on ebuild drift), the
+  `overlay` branch mirror, and automatic issue filing on any gate failure.
 - **Gentoo tooling** (`gentoo-tooling.yml`): offline self-tests on every
   PR/push touching the overlay or tooling.
 
@@ -123,8 +123,10 @@ The full overlay gates need docker (gentoo/stage3) and take a while;
 - `gentoo.yml` → `lint`: `pkgcheck scan` (Manifest check excluded — CI
   generates Manifests) and per-package resolution via `bin/gentoo-resolve`
   inside a stock gentoo/stage3 container, repo-owned tooling only.
-- `gentoo.yml` → nightly: `sync-check` (drift), smoke emerge (real build),
-  mirror (publishes the `overlay` branch), and issue filing on failure.
+- `gentoo.yml` → nightly: `sync-check` (drift) gates the smoke emerge (a
+  real build of one rotating package on the self-hosted runner); the
+  mirror (publishes the `overlay` branch) runs on push; issue filing on
+  failure.
 
 If a gate fails on master, the automation files a GitHub issue
 (`gentoo-overlay` label). Fix the issue, push, and the nightly loop

@@ -31,5 +31,6 @@ retroarch-joypad-autoconfig-git	games-emulation	retroarch-joypad-autoconfig
 tobi-try	dev-util	try
 ttf-ia-writer	media-fonts	ia-writer
 ttf-jetbrains-mono-nerd-basic	media-fonts	jetbrains-mono-nerd-basic
+ttfx	app-misc	ttfx
 ufw-docker	net-firewall	ufw-docker
 xdg-terminal-exec	x11-misc	xdg-terminal-exec

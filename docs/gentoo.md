@@ -142,7 +142,8 @@ Nobody shepherds the overlay by hand; the loop closes itself:
    self-tests live in the separate `gentoo-tooling.yml` workflow.
 3. **Nightly smoke emerge**: one rotating package per night is really
    emerged (Manifests generated, distfiles digested, build executed) in a
-   fresh stage3. Small blast radius, real signal.
+   fresh stage3 on the self-hosted runner, gated on the drift check and on
+   its own inline pkgcheck scan. Small blast radius, real signal.
 4. **Coverage backlog**: a nightly job files/updates a GitHub issue with
    the unported queue and the skip list — the work queue agents pick from.
 5. **Failure path**: any gate failure on master or the nightly loop files a

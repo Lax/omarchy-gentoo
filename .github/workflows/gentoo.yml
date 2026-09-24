@@ -7,14 +7,15 @@ name: Gentoo overlay
 # mirror branch.
 #
 # The workflow is self-managed: PRs are gated by static checks, merges are
-# mirrored automatically, one package is really emerged every night, the
-# unported queue is filed as a tracking issue agents pick work from, and any
-# gate failure files an issue so nobody has to watch the Actions tab.
+# mirrored automatically, a package is really emerged nightly behind the
+# drift gate (the smoke, on the self-hosted runner) and on demand, the
+# unported queue is filed as a tracking issue agents pick work from, and
+# any gate failure files an issue so nobody has to watch the Actions tab.
 #
 # Trust model: PRs may change what the overlay contains (ebuilds), and the
 # lint job only ever parses that content with repo-owned tooling inside a
 # stock gentoo/stage3 container. Real emerge runs (which execute ebuild code)
-# happen exclusively from master: the nightly smoke job and the mirror.
+# happen exclusively from master: the on-demand smoke job and the mirror.
 # Build caches (distfiles, locally built binary packages, ccache) persist
 # between runs to keep the desktop-sized closures affordable; everything in
 # them was produced by earlier runs of this same pipeline, never fetched
@@ -105,8 +106,12 @@ jobs:
     # the binpkg cache; the smoke atom itself always merges from source so
     # the signal stays real. The runner's stage3 fetches through the local
     # proxy and the aliyun mirror, which is why they are baked into
-    # make.conf here.
+    # make.conf here. Scheduled nightly but gated: needs the drift check
+    # green before it starts, and its own inline pkgcheck scan gates the
+    # emerge. Never pull_request (fork code cannot reach the self-hosted
+    # machine).
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    needs: [sync-check]
     runs-on: [self-hosted, omarchy-smoke]
     timeout-minutes: 350
     steps:
