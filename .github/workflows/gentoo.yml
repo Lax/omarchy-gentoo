@@ -118,12 +118,12 @@ jobs:
 
       - name: Manifest, digest-verify, and emerge the package of the day (stage3)
         run: |
-          mkdir -p /var/cache/omarchy-runner/distfiles /var/cache/omarchy-runner/binpkgs /var/cache/omarchy-runner/ccache
+          mkdir -p /data/cache/omarchy-runner/distfiles /data/cache/omarchy-runner/binpkgs /data/cache/omarchy-runner/ccache
           docker run --rm --network host \
             -v "$PWD/gentoo:/var/db/repos/omarchy" \
-            -v /var/cache/omarchy-runner/distfiles:/var/cache/distfiles \
-            -v /var/cache/omarchy-runner/binpkgs:/var/cache/binpkgs \
-            -v /var/cache/omarchy-runner/ccache:/var/cache/ccache \
+            -v /data/cache/omarchy-runner/distfiles:/var/cache/distfiles \
+            -v /data/cache/omarchy-runner/binpkgs:/var/cache/binpkgs \
+            -v /data/cache/omarchy-runner/ccache:/var/cache/ccache \
             gentoo/stage3 bash -c '
               set -eu
               command -v getuto >/dev/null && getuto || true
@@ -135,9 +135,14 @@ jobs:
               echo "LLVM_TARGETS=\"X86 AMDGPU\"" >> /etc/portage/make.conf
               echo "FEATURES=\"\${FEATURES} buildpkg ccache\"" >> /etc/portage/make.conf
               echo "CCACHE_DIR=\"/var/cache/ccache\"" >> /etc/portage/make.conf
-              echo "GENTOO_MIRRORS=\"https://mirrors.aliyun.com/gentoo/\"" >> /etc/portage/make.conf
-              echo "http_proxy=\"http://127.0.0.1:64540\"" >> /etc/portage/make.conf
-              echo "https_proxy=\"http://127.0.0.1:64540\"" >> /etc/portage/make.conf
+              # Mirrors and the site proxy are self-hosted-only network facts
+              # and apply there; on a GitHub-hosted runner the defaults are
+              # the fast path.
+              if [ "${RUNNER_ENVIRONMENT:-}" = "self-hosted" ]; then
+                echo "GENTOO_MIRRORS=\"https://mirrors.aliyun.com/gentoo/\"" >> /etc/portage/make.conf
+                echo "http_proxy=\"http://127.0.0.1:64540\"" >> /etc/portage/make.conf
+                echo "https_proxy=\"http://127.0.0.1:64540\"" >> /etc/portage/make.conf
+              fi
               mkdir -p /etc/portage/repos.conf
               ln -sf /usr/share/portage/config/repos.conf /etc/portage/repos.conf/gentoo.conf
               # Keyservers are unreachable from the self-hosted site; getuto
