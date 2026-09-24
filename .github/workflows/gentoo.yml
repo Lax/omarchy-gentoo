@@ -110,6 +110,9 @@ jobs:
     runs-on: [self-hosted, omarchy-smoke]
     timeout-minutes: 350
     steps:
+      - name: Reset workspace (stage3 writes root-owned md5-cache into the tree)
+        run: sudo rm -rf "$GITHUB_WORKSPACE" && mkdir -p "$GITHUB_WORKSPACE"
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -194,6 +197,10 @@ jobs:
                 smoke_deps
               fi
               smoke_atom
+              # stage3 regenerates the md5-cache as root inside the mounted
+              # tree; drop it so the persistent workspace stays checkoutable
+              # by the runner user on the next job.
+              rm -rf /var/db/repos/omarchy/metadata/md5-cache
             '
 
   sync-check:
