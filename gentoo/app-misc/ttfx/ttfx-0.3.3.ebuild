@@ -51,7 +51,8 @@ src_install() {
 	# Completions are rendered by the binary itself, like the Arch recipe.
 	"$(cargo_target_dir)/ttfx" --print-completion bash > "${T}"/ttfx.bash || die
 	"$(cargo_target_dir)/ttfx" --print-completion zsh > "${T}"/_ttfx || die
-	dobashcomp "${T}"/ttfx.bash
+	insinto /usr/share/bash-completion/completions
+	newins "${T}"/ttfx.bash ttfx
 	insinto /usr/share/zsh/site-functions
 	doins "${T}"/_ttfx
 
