@@ -58,7 +58,8 @@ helpers/       conversion rules and ported/skipped bookkeeping
 The project is **Omarchy on Gentoo** — an intentional echo of Ruby on
 Rails, by the same author — while the repository slug stays
 `omarchy-gentoo` (lowercase, hyphenated) and the Portage repository users
-configure is `omarchy`. The mark is the JetBrains Mono **g** — the
-wordmark's own typeface — banded from omarchy green into Gentoo purple.
-Canonical forms, palette, and asset inventory live in
+configure is `omarchy`. The mark frames the official Gentoo signet **g**
+inside omarchy's bracket ring — Gentoo purple lit by a Tokyo Night green
+shine; the wordmark is JetBrains Mono. Canonical forms, palette, the
+`logo.svg` / `logo.txt` / `icon.png` trio, and asset inventory live in
 [`assets/logo/README.md`](assets/logo/README.md).

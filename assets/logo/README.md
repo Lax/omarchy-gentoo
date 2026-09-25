@@ -1,8 +1,9 @@
 # Omarchy on Gentoo — name & brand
 
 One name, one mark, defined once. Regenerate every asset here with
-`python3 generate.py` (needs `fonttools`, JetBrains Mono Nerd Font, and
-`rsvg-convert`; SVG text is baked to paths so viewers need no fonts).
+`python3 generate.py` (needs `fonttools`, JetBrains Mono Nerd Font,
+`rsvg-convert`, and ImageMagick; SVG text is baked to paths so viewers need
+no fonts).
 
 ## The name
 
@@ -38,31 +39,55 @@ Rules:
 
 ## The mark
 
-The lowercase **g** of JetBrains Mono Bold — the same typeface as the
-wordmark, and Omarchy's own terminal font — filled with four hard horizontal
-bands: Omarchy's Tokyo Night greens (`#daecc6`, `#9ece6a`) flowing into
-Gentoo purples (`#8e77c2`, `#54487a`). Read top to bottom: omarchy becomes
-gentoo.
+Shape and coloring are deconstructed and recombined. The shape is fixed:
+omarchy's interlocking bracket ring (traced from omacom/omarchy's `icon.png`,
+quattro branch, via potrace — `sources/omarchy-icon-traced.svg`) framing the
+official Gentoo signet **g** (gentoo.org artwork,
+`sources/gentoo-signet.svg`, paths untouched), whose four path layers —
+back, mid, eye, front — are the paintable regions. The coloring is a
+pluggable strategy (`generate.py` → `COLORINGS`, switch with
+`MARK_COLORING=<name> python3 generate.py`); all of them are previewed side
+by side in `colorings.svg`:
 
-| Color | Hex | Role |
-| --- | --- | --- |
-| Tokyo Night background | `#1a1b26` | tile fill (dark), `#16161e` for the social card |
-| omarchy light | `#daecc6` | band 1 |
-| omarchy green | `#9ece6a` | band 2, wordmark "omarchy" on dark |
-| gentoo violet | `#8e77c2` | band 3, wordmark "-gentoo" on dark |
-| gentoo purple | `#54487a` | band 4 (Gentoo's brand purple) |
+| Strategy | Look |
+| --- | --- |
+| `bands4` *(default)* | the omarchy→gentoo 4-step band ladder (`#daecc6`/`#9ece6a`/`#8e77c2`/`#54487a`) stepped across the g — omarchy green frame, the g climbing from pale-green shine into gentoo purple |
+| `flat` | quattro-style flat blocks — green frame, violet `#8e77c2` body, `#54487a` rim, `#3b3158` shadow, pale-green eye |
+| `oma5` | omarchy's official 5-green band stack (`#daecc6`→`#39482e`) across the g |
+| `field` | one continuous band field running through frame and g together |
+| `signet-official` | the signet's own gradient transforms, stops re-laid on the palette (soft 3-D) |
 
-## Files
+Layer fills that differ from the front's keep the signet's layered seams
+visible; the eye is always omarchy's pale green light on the g. The default
+`bands4` reads as: **the omarchy green frame hands the g over to gentoo
+purple, one hard step at a time.**
+
+## Asset management
+
+The canonical trio follows omacom/omarchy's own convention — one plainly
+named file per medium, kept side by side:
+
+| File | Use |
+| --- | --- |
+| `logo.svg` | the wordmark, monochrome `fill="#000"` — recolor or restyle freely |
+| `logo.txt` | the wordmark's ASCII twin for terminals (fastfetch, motd, README code blocks) |
+| `icon.png` | 300×300 raster of the mark, drop-in anywhere omarchy's `icon.png` would go |
+
+The full kit around them:
 
 | File | Use |
 | --- | --- |
 | `omarchy-gentoo-mark.svg` | the icon: avatars, favicons, badges |
+| `colorings.svg` | every coloring strategy on the same shape — the mark's design space |
 | `omarchy-gentoo-mark-{512,128,64,32}.png` | raster icon exports |
 | `omarchy-gentoo-lockup-dark.svg` / `-light.svg` | horizontal logo + tagline; use per background (README `<picture>` swaps them) |
-| `omarchy-gentoo-glyph.svg` | bare gradient "g", no tile |
+| `omarchy-gentoo-glyph.svg` | bracket + g without the tile, transparent background |
 | `social-preview.svg` / `.png` | GitHub repo social preview (1280×640; upload in repo settings → Social preview) |
+| `sources/` | the upstream vectors the mark is built from; do not hand-edit |
+| `generate.py` | regenerates everything above |
 
-Trademark note: Omarchy is a pending trademark of its respective owners;
-Gentoo is a trademark of the Gentoo Foundation. This mark is original
-artwork created for this overlay (glyph outlines from the SIL OFL JetBrains
-Mono) and asserts no affiliation with or endorsement by either project.
+Trademark note: the Gentoo logo artwork and name are trademarks of the
+Gentoo Foundation, used here per the Gentoo artwork guidelines to identify
+an unofficial community overlay — this project is not official Gentoo or
+Omarchy tooling. Omarchy is a pending trademark of its respective owners.
+The mark is original composition for this overlay.

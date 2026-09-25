@@ -2,3 +2,5 @@
 .v2c/
 .video_agent/
 .zcode/
+
+__pycache__/
