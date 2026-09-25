@@ -8,8 +8,9 @@ it tells you which gate proves your work.
 
 ## What this repository is
 
-A Gentoo ebuild overlay for Omarchy packages, delivered as the `overlay`
-branch (whose tree root IS the overlay; CI mirrors it on every merge to
+A Gentoo ebuild overlay for Omarchy packages, published to the
+[omarchy-overlay](https://github.com/Lax/omarchy-overlay) repository
+(whose tree root IS the overlay; CI republishes it on every merge to
 master). The Arch recipes it is derived from are **not** part of this
 repository: they live in the pinned `omarchy-pkgs/` submodule
 (omacom/omarchy-pkgs, tracked to its master branch). This is a two-root project:
@@ -25,9 +26,10 @@ tooling cannot disagree with itself.
 ## Repository layout
 
 - `gentoo/` — the overlay. Never commit `Manifest` files; CI generates them.
-  The mirrored `overlay` branch carries a root `PROVENANCE` file recording
-  the master commit it was generated from and the `omarchy-pkgs` commit its
-  recipes reflect; both ids are also in every mirror commit message.
+  The published omarchy-overlay repository carries a root `PROVENANCE` file
+  recording the master commit it was generated from and the `omarchy-pkgs`
+  commit its recipes reflect; both ids are also in every mirror commit
+  message.
 - `omarchy-pkgs/` — submodule (named after the upstream repo). Update it
   via the `Upstream sync` automation, or by hand:
   `git submodule update --remote omarchy-pkgs`.
@@ -50,7 +52,7 @@ tooling cannot disagree with itself.
   package (self-hosted runner, gated on the drift check), the nightly
   porting-backlog issue (the queue of unported packages, from
   `bin/ai-port --list-open`), `sync-check` (fails on ebuild drift), the
-  `overlay` branch mirror, and automatic issue filing on any gate failure.
+  omarchy-overlay publish, and automatic issue filing on any gate failure.
 - **Gentoo tooling** (`gentoo-tooling.yml`): offline self-tests on every
   PR/push touching the overlay or tooling.
 
@@ -136,7 +138,7 @@ The full overlay gates need docker (gentoo/stage3) and take a while;
   inside a stock gentoo/stage3 container, repo-owned tooling only.
 - `gentoo.yml` → nightly: `sync-check` (drift) gates the smoke emerge (a
   real build of one rotating package on the self-hosted runner); the
-  mirror (publishes the `overlay` branch) runs on push; issue filing on
+  mirror (publishes to Lax/omarchy-overlay) runs on push; issue filing on
   failure.
 
 If a gate fails on master, the automation files a GitHub issue

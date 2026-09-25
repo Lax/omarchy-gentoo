@@ -1,10 +1,10 @@
 name: Gentoo overlay
 
-# The Gentoo overlay lives in gentoo/ and is mirrored to the `overlay` branch
-# (whose root IS the overlay) because Portage can only sync an ebuild
-# repository from the root of a git tree. Manifests never live in this
-# repository: they are generated from the distfiles and committed only on the
-# mirror branch.
+# The Gentoo overlay lives in gentoo/ and is published to the
+# Lax/omarchy-overlay repository (whose tree root IS the overlay) because
+# Portage can only sync an ebuild repository from the root of a git tree.
+# Manifests never live in this repository: they are generated from the
+# distfiles and committed only on the publish target.
 #
 # The workflow is self-managed: PRs are gated by static checks, merges are
 # mirrored automatically, a package is really emerged nightly behind the
@@ -295,8 +295,9 @@ jobs:
           fi
 
   mirror:
-    # Publish: regenerate Manifests and fast-forward the `overlay` branch
-    # whose tree root is the overlay users sync. Runs self-hosted next to
+    # Publish: regenerate Manifests and publish the tree to
+    # Lax/omarchy-overlay, whose root is the overlay users sync. Runs
+    # self-hosted next to
     # the smoke job: Manifest generation reuses the shared distfiles volume
     # instead of re-downloading ~3.5GB on every push, and the single runner
     # serializes mirrors that GitHub-hosted runners could run in parallel.
@@ -313,6 +314,25 @@ jobs:
         with:
           persist-credentials: false
           submodules: recursive
+
+      - name: Check publish credential
+        run: |
+          # GITHUB_TOKEN is scoped to this repository and cannot push across
+          # repositories, so publication needs a fine-grained PAT scoped to
+          # Lax/omarchy-overlay (Contents: read/write), stored as
+          # OVERLAY_PUBLISH_TOKEN. Fail loud when absent: the report job
+          # files the tracking issue, and setting the secret closes the loop.
+          if [[ -z '${{ secrets.OVERLAY_PUBLISH_TOKEN }}' ]]; then
+            echo '::error::OVERLAY_PUBLISH_TOKEN is not set. Create a PAT scoped to Lax/omarchy-overlay (Contents: read/write) and store it with: gh secret set OVERLAY_PUBLISH_TOKEN -R Lax/omarchy-gentoo'
+            exit 1
+          fi
+
+      - name: Checkout publish target
+        uses: actions/checkout@v5
+        with:
+          repository: Lax/omarchy-overlay
+          token: ${{ secrets.OVERLAY_PUBLISH_TOKEN }}
+          path: overlay-repo
 
       - name: Build the overlay tree with fresh Manifests (stage3)
         run: |
@@ -350,65 +370,64 @@ jobs:
               cp -a /var/db/repos/omarchy/. /staging/
             '
 
-      - name: Commit and push the overlay branch
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Stamp provenance
+        id: pins
         run: |
-          set -eu
-          git config --global user.name "omarchy-gentoo-ci"
-          git config --global user.email "hello@omarchy.org"
-          # gitlink noise never reaches the mirror; the submodule pointer is
+          # gitlink noise never reaches the publish; the submodule pointer is
           # management-repo state, not overlay content. Its pinned commit is
-          # recorded instead, in PROVENANCE and in the mirror commit message.
+          # recorded instead, in PROVENANCE and in the publish commit
+          # message. Deliberately content-derived only (no timestamp, no run
+          # url) so a mirror run whose inputs did not move still hits the
+          # action's no-change skip instead of committing noise.
           rm -rf "$PWD/overlay-staging/omarchy-pkgs"
           master_sha=$(git -C "$GITHUB_WORKSPACE" rev-parse HEAD)
           upstream_sha=$(git -C "$GITHUB_WORKSPACE/omarchy-pkgs" rev-parse HEAD)
-
-          # Fast-forward history when the overlay branch exists, start it
-          # when it does not; then replace the tree wholesale with the
-          # freshly generated one.
-          if git clone --quiet --branch overlay --single-branch \
-              "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
-              /tmp/overlay 2>/dev/null; then
-            :
-          else
-            mkdir -p /tmp/overlay
-            git -C /tmp/overlay init --initial-branch=overlay
-          fi
-
-          cd /tmp/overlay
-          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
-          cp -a "$GITHUB_WORKSPACE/overlay-staging/." .
-          git config --global --add safe.directory /tmp/overlay
-
-          # Provenance stamp: which master commit generated this tree and
-          # which omarchy-pkgs commit its recipes reflect. Deliberately
-          # content-derived only (no timestamp, no run url) so a mirror run
-          # whose inputs did not move still hits the no-diff short-circuit
-          # below instead of committing noise.
-          cat > PROVENANCE <<EOF
-          omarchy-gentoo overlay, mirrored from the master branch of
+          cat > "$GITHUB_WORKSPACE/overlay-staging/PROVENANCE" <<EOF
+          omarchy-gentoo overlay, mirrored from
           https://github.com/Lax/omarchy-gentoo (the gentoo/ directory).
 
-          master:   $master_sha
+          project:  $master_sha
           upstream: $upstream_sha
 
-          master   the omarchy-gentoo commit this tree was generated from
+          project  the omarchy-gentoo commit this tree was generated from
           upstream the omacom/omarchy-pkgs commit its PKGBUILDs reflect,
-                   i.e. the submodule pin carried by that master commit
+                   i.e. the submodule pin carried by that commit
 
-          The overlay branch's own commit history records when each mirror
-          ran; both ids also appear in every mirror commit message.
+          This tree is published at https://github.com/Lax/omarchy-overlay.
+          The publish history records when each mirror ran; both ids also
+          appear in every mirror commit message.
           EOF
+          echo "master12=${master_sha::12}" >> "$GITHUB_OUTPUT"
+          echo "upstream12=${upstream_sha::12}" >> "$GITHUB_OUTPUT"
 
-          git add -A
-          if git diff --cached --quiet; then
-            echo "overlay branch is up to date"
-            exit 0
-          fi
-          git commit --quiet -m "overlay: mirror gentoo/ from ${master_sha::12} (omarchy-pkgs ${upstream_sha::12})"
-          git push --quiet "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
-            HEAD:refs/heads/overlay
+      - name: Replace the published tree with the freshly generated one
+        run: |
+          set -eu
+          # Wholesale replace: the publish target's tree is exactly the
+          # generated overlay; wiping everything but .git drops files the
+          # source no longer has (removed packages, stale Manifests).
+          find "$GITHUB_WORKSPACE/overlay-repo" -mindepth 1 -maxdepth 1 \
+            ! -name .git -exec rm -rf {} +
+          cp -a "$GITHUB_WORKSPACE/overlay-staging/." \
+            "$GITHUB_WORKSPACE/overlay-repo/"
+
+      - name: Commit and publish to omarchy-overlay
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          # The publish target is a dedicated overlay repository whose tree
+          # root IS the overlay users sync. --force overwrites whatever the
+          # target carried on bootstrap; afterwards every mirror is a
+          # fast-forward child of the previously published tree.
+          repository: overlay-repo
+          branch: master
+          file_pattern: '.'
+          commit_message: 'overlay: mirror gentoo/ from ${{ steps.pins.outputs.master12 }} (omarchy-pkgs ${{ steps.pins.outputs.upstream12 }})'
+          commit_author: omarchy-gentoo-ci <hello@omarchy.org>
+          commit_user_name: omarchy-gentoo-ci
+          commit_user_email: hello@omarchy.org
+          skip_fetch: true
+          skip_checkout: true
+          push_options: '--force'
 
   report:
     # Self-managed failure path: nobody watches the Actions tab. Any failing

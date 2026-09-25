@@ -7,19 +7,17 @@
 
 Omarchy packages for Gentoo Linux, as a source-based ebuild overlay.
 
-The Arch recipes live in the pinned [`omarchy-pkgs/` submodule](https://github.com/omacom/omarchy-pkgs); this repository turns them into ebuilds, validates them in a Gentoo stage3 container, and publishes the result as the `overlay` branch — which is what Portage users sync.
+The Arch recipes live in the pinned [`omarchy-pkgs/` submodule](https://github.com/omacom/omarchy-pkgs); this repository turns them into ebuilds, validates them in a Gentoo stage3 container, and publishes the result to the [omarchy-overlay](https://github.com/Lax/omarchy-overlay) repository — which is what Portage users sync.
 
 Maintained by automation and coding agents. `AGENTS.md` is the playbook; `docs/gentoo.md` is the full contract (translation rules, scope, the self-managed loop).
 
 ## Using the overlay
 
-Quick start — `eselect repository add` only writes the config, so pin the
-branch before the first sync (the default branch `master` is this
-project's tooling root, not the overlay):
+The overlay is a repository of its own and its tree root IS the overlay,
+so syncing is one command:
 
 ```bash
-eselect repository add omarchy git https://github.com/Lax/omarchy-gentoo.git
-sed -i '/^\[omarchy\]$/a sync-git-clone-extra-opts = --branch=overlay' /etc/portage/repos.conf/eselect-repo.conf
+eselect repository add omarchy git https://github.com/Lax/omarchy-overlay.git
 emaint sync -r omarchy
 ```
 
@@ -30,8 +28,7 @@ Or hand-write the repository definition:
 [omarchy]
 location = /var/db/repos/omarchy
 sync-type = git
-sync-uri = https://github.com/Lax/omarchy-gentoo.git
-sync-git-clone-extra-opts = --branch=overlay
+sync-uri = https://github.com/Lax/omarchy-overlay.git
 priority = 50
 ```
 
@@ -41,7 +38,7 @@ Then `emerge <category>/<package>`. Keyword `~amd64`/`~arm64` as usual, and acce
 
 ```
 omarchy-pkgs/  submodule: omacom/omarchy-pkgs (the Arch recipes, pinned)
-gentoo/        the ebuild overlay (mirrored to the `overlay` branch)
+gentoo/        the ebuild overlay (published to Lax/omarchy-overlay)
 bin/           ai-port, sync-gentoo, scaffold-ebuild, gentoo-resolve
 helpers/       conversion rules and ported/skipped bookkeeping
 .github/       three workflows: gates, tooling self-tests, upstream sync
@@ -50,7 +47,7 @@ helpers/       conversion rules and ported/skipped bookkeeping
 ## How it maintains itself
 
 - Every 3h, `Upstream sync` advances the submodule pin, reconciles ebuild versions against the new recipes, and pushes to master — filing an agent-actionable issue whenever a rename needs judgement.
-- Nightly, the overlay loop really emerges one rotating package in a fresh Gentoo stage3 on the self-hosted runner (gated on the drift check), re-checks for drift, files the porting backlog as an issue, and mirrors `gentoo/` to the `overlay` branch on push.
+- Nightly, the overlay loop really emerges one rotating package in a fresh Gentoo stage3 on the self-hosted runner (gated on the drift check), re-checks for drift, files the porting backlog as an issue, and publishes `gentoo/` to the omarchy-overlay repository on push.
 - Any gate failure files an issue with the run link. Fix, push, and the next green run closes the loop.
 
 ## Branding

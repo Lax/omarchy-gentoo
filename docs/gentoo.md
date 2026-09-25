@@ -24,14 +24,12 @@ so CI mirrors `gentoo/` to the repository's `overlay` branch — the
 default `master` branch is this project's tooling root, not an overlay.
 On a Gentoo machine:
 
-Quick start with eselect-repository. `eselect repository add` only writes
-the repos.conf entry, it does not sync, so the branch pin must be in
-place before the first sync (without it the sync clones `master` and
-yields an empty repository):
+Quick start with eselect-repository. The overlay lives in its own
+repository ([Lax/omarchy-overlay](https://github.com/Lax/omarchy-overlay)),
+whose tree root IS the overlay, so no branch pin is needed:
 
 ```bash
-eselect repository add omarchy git https://github.com/Lax/omarchy-gentoo.git
-sed -i '/^\[omarchy\]$/a sync-git-clone-extra-opts = --branch=overlay' /etc/portage/repos.conf/eselect-repo.conf
+eselect repository add omarchy git https://github.com/Lax/omarchy-overlay.git
 emaint sync -r omarchy
 ```
 
@@ -42,8 +40,7 @@ Or hand-write the repository definition:
 [omarchy]
 location = /var/db/repos/omarchy
 sync-type = git
-sync-uri = https://github.com/Lax/omarchy-gentoo.git
-sync-git-clone-extra-opts = --branch=overlay
+sync-uri = https://github.com/Lax/omarchy-overlay.git
 priority = 50
 ```
 
