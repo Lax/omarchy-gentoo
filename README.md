@@ -43,8 +43,8 @@ helpers/       conversion rules and ported/skipped bookkeeping
 
 ## Branding
 
-The project is **Omarchy on Gentoo** — an intentional echo of Ruby on
-Rails, by the same author — while the repository slug stays
+The project is **Omarchy on Gentoo** — the Omarchy desktop, ported to
+Gentoo Linux — while the repository slug stays
 `omarchy-gentoo` (lowercase, hyphenated) and the Portage repository users
 configure is `omarchy`. The mark frames the official Gentoo signet **g**
 inside omarchy's bracket ring — the g climbs a four-step band ladder from
