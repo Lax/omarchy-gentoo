@@ -56,6 +56,7 @@ omarchy-audio-tuner	media-sound	omarchy-audio-tuner
 omarchy-billboard-generator	media-gfx	omarchy-billboard-generator
 omarchy-emacs	app-editors	omarchy-emacs
 omarchy-fish	app-shells	omarchy-fish
+omarchy-meeting-recorder-bin	media-sound	omarchy-meeting-recorder-bin
 omarchy-settings	app-misc	omarchy-settings
 omarchy-zsh	app-shells	omarchy-zsh
 once-bin	app-misc	once-bin

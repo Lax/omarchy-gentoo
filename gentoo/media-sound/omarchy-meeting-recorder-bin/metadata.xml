@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="project">
+		<email>hello@omarchy.org</email>
+		<name>Omarchy</name>
+	</maintainer>
+	<longdescription>
+		Meeting recorder for Omarchy: captures the microphone and the computer
+		audio in two tracks and transcribes them locally (whisper.cpp and
+		sherpa-onnx are built into the binary), with speakers, chapters and a
+		player. Ships the prebuilt binary, desktop entry, the
+		application/x-omarchy-meeting shared-mime type and the quickshell bar
+		widget. The ~1.6 GB speech model is fetched on first use, or reused
+		from voxtype when present.
+	</longdescription>
+	<upstream>
+		<remote-id type="github">jankeesvw/omarchy-meeting-recorder</remote-id>
+	</upstream>
+</pkgmetadata>

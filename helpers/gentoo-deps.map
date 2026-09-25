@@ -62,6 +62,7 @@ glibc					DROP
 git						dev-vcs/git
 gnome-keyring			gnome-base/gnome-keyring
 gnupg				app-crypt/gnupg
+graphene			media-libs/graphene
 gst-libav				media-plugins/gst-plugins-libav
 gst-plugins-base-libs				media-libs/gst-plugins-base
 gstreamer				media-libs/gstreamer
@@ -81,6 +82,7 @@ libcurl-gnutls			MANUAL:no Gentoo provider ships libcurl-gnutls.so.4; needs a de
 libdrm				x11-libs/libdrm
 libepoxy				media-libs/libepoxy
 libffi				dev-libs/libffi
+libgcc					DROP
 libgcrypt				dev-libs/libgcrypt
 libglvnd				media-libs/libglvnd
 libgpg-error				dev-libs/libgpg-error
@@ -90,6 +92,7 @@ libpng				media-libs/libpng
 libpulse				media-libs/libpulse
 libsecret				app-crypt/libsecret
 libsm					x11-libs/libSM
+libstdc++				DROP
 libva				media-libs/libva
 libx11				x11-libs/libX11
 libxcb				x11-libs/libxcb
@@ -129,6 +132,7 @@ pacman-contrib			MANUAL:checkupdates is a pacman helper; the omarchy ebuild swap
 pango				x11-libs/pango
 pciutils				sys-apps/pciutils
 perl					dev-lang/perl
+perl-file-mimeinfo		dev-perl/File-MimeInfo
 pipewire				media-video/pipewire
 plymouth				sys-boot/plymouth
 python					dev-lang/python
