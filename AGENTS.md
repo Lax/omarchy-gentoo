@@ -96,6 +96,14 @@ bin/sync-gentoo <package>      # or with no arguments, every table row
 bin/sync-gentoo --check        # report-only; exits 1 on drift
 ```
 
+### Sync the whole overlay (skill)
+
+The full cycle — submodule bump, delta analysis, ports/skips, gates,
+commit+push — is codified in `.agents/skills/omarchy-gentoo-sync/`. Invoke it
+(`/omarchy-gentoo-sync`) or follow its SKILL.md directly for a hand-run sync;
+its `scripts/docker-gates.sh` is the local gate runner with the host-tree
+fallback for networks where the stock webrsync path cannot reach gentoo.org.
+
 ### Tooling changes
 
 All scripts carry self-tests; run them plus the mapping-table walk:
