@@ -7,7 +7,7 @@
 
 Omarchy packages for Gentoo Linux, as a source-based ebuild overlay.
 
-The ebuilds live in the [omarchy-overlay](https://github.com/Lax/omarchy-overlay) repository — add it to Portage and install what you need. This repository is the development home: it follows [upstream Omarchy](https://github.com/omacom/omarchy-pkgs)'s package recipes and republishes the overlay automatically as they change.
+The ebuilds live in the [omarchy-overlay](https://github.com/Lax/omarchy-overlay) repository — add it to Portage and install what you need. This repository is the development home: it follows [upstream Omarchy](https://github.com/omacom/omarchy-pkgs)'s package recipes and republishes the overlay automatically as they change. The former mirror, [omarchy-gentoo-archive](https://github.com/Lax/omarchy-gentoo-archive), is archived and read-only — do not add it to Portage.
 
 Maintained by automation and coding agents. `AGENTS.md` is the playbook; `docs/gentoo.md` is the full contract (translation rules, scope, the self-managed loop).
 
@@ -32,12 +32,15 @@ command line, themes and default settings (`app-misc/omarchy-settings`,
 upgraded in lockstep with the core).
 
 **Full** — the core plus the default application set upstream ships on its
-ISO (147 packages: browsers, terminal tools, printing, containers, ...).
-The list lives in
-[upstream's `omarchy-base.packages`](https://github.com/basecamp/omarchy/blob/master/install/omarchy-base.packages)
-and most of it emerges under the same names; a one-command
-`app-misc/omarchy-base` metapackage for it is planned (see
-`docs/gentoo.md`).
+ISO (147 packages: browsers, terminal tools, printing, containers, ...):
+
+```bash
+emerge app-misc/omarchy-base
+```
+
+It maps [upstream's `omarchy-base.packages`](https://github.com/basecamp/omarchy/blob/master/install/omarchy-base.packages)
+onto Gentoo; entries ::gentoo no longer ships or that are Arch-only are left
+out, and the ebuild comments list every omission with its reason.
 
 The kernel and bootloader are not part of this — on Gentoo those are yours
 to run; the Arch boot stack is intentionally not ported.

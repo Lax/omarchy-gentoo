@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="project">
+		<email>hello@omarchy.org</email>
+		<name>Omarchy</name>
+	</maintainer>
+	<longdescription>
+		The full Omarchy install in one command: the desktop core
+		(app-misc/omarchy) plus the default application set upstream's ISO
+		installs, mapped from upstream's omarchy-base.packages list onto
+		::gentoo and this overlay. Entries ::gentoo no longer ships, and
+		Omarchy in-house tools not yet ported, are left out — the ebuild
+		comments list every omission with its reason.
+	</longdescription>
+	<upstream>
+		<remote-id type="github">basecamp/omarchy</remote-id>
+	</upstream>
+</pkgmetadata>
