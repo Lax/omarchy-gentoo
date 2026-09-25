@@ -7,32 +7,21 @@
 
 Omarchy packages for Gentoo Linux, as a source-based ebuild overlay.
 
-The Arch recipes live in the pinned [`omarchy-pkgs/` submodule](https://github.com/omacom/omarchy-pkgs); this repository turns them into ebuilds, validates them in a Gentoo stage3 container, and publishes the result to the [omarchy-overlay](https://github.com/Lax/omarchy-overlay) repository — which is what Portage users sync.
+The ebuilds live in the [omarchy-overlay](https://github.com/Lax/omarchy-overlay) repository — add it to Portage and install what you need. This repository is the development home: it follows [upstream Omarchy](https://github.com/omacom/omarchy-pkgs)'s package recipes and republishes the overlay automatically as they change.
 
 Maintained by automation and coding agents. `AGENTS.md` is the playbook; `docs/gentoo.md` is the full contract (translation rules, scope, the self-managed loop).
 
 ## Using the overlay
-
-The overlay is a repository of its own and its tree root IS the overlay,
-so syncing is one command:
 
 ```bash
 eselect repository add omarchy git https://github.com/Lax/omarchy-overlay.git
 emaint sync -r omarchy
 ```
 
-Or hand-write the repository definition:
-
-```ini
-# /etc/portage/repos.conf/omarchy.conf
-[omarchy]
-location = /var/db/repos/omarchy
-sync-type = git
-sync-uri = https://github.com/Lax/omarchy-overlay.git
-priority = 50
-```
-
-Then `emerge <category>/<package>`. Keyword `~amd64`/`~arm64` as usual, and accept the proprietary licenses of the `-bin` packages, e.g. `*/* all-rights-reserved` in `/etc/portage/package.license`. See `docs/gentoo.md` for details.
+Then `emerge <category>/<package>`. Packages are keyworded `~amd64`/`~arm64`
+and the `-bin` ones carry proprietary licenses — accept them as usual, e.g.
+`*/* all-rights-reserved` in `/etc/portage/package.license`. If you don't
+use eselect-repository, `docs/gentoo.md` has a hand-written variant.
 
 ## Layout
 
@@ -46,9 +35,11 @@ helpers/       conversion rules and ported/skipped bookkeeping
 
 ## How it maintains itself
 
-- Every 3h, `Upstream sync` advances the submodule pin, reconciles ebuild versions against the new recipes, and pushes to master — filing an agent-actionable issue whenever a rename needs judgement.
-- Nightly, the overlay loop really emerges one rotating package in a fresh Gentoo stage3 on the self-hosted runner (gated on the drift check), re-checks for drift, files the porting backlog as an issue, and publishes `gentoo/` to the omarchy-overlay repository on push.
-- Any gate failure files an issue with the run link. Fix, push, and the next green run closes the loop.
+- Upstream Omarchy changes are picked up automatically, and the overlay is
+  republished as they land.
+- A package is really built every night to catch breakage early.
+- When something needs judgement, an issue is filed automatically — and
+  closed again by the next green run.
 
 ## Branding
 

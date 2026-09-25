@@ -19,14 +19,9 @@ ebuilds later.
 
 ## Using the overlay
 
-An ebuild repository must sit at the root of the git tree Portage syncs,
-so CI mirrors `gentoo/` to the repository's `overlay` branch — the
-default `master` branch is this project's tooling root, not an overlay.
-On a Gentoo machine:
-
-Quick start with eselect-repository. The overlay lives in its own
-repository ([Lax/omarchy-overlay](https://github.com/Lax/omarchy-overlay)),
-whose tree root IS the overlay, so no branch pin is needed:
+The overlay lives in its own repository,
+[Lax/omarchy-overlay](https://github.com/Lax/omarchy-overlay). On a Gentoo
+machine:
 
 ```bash
 eselect repository add omarchy git https://github.com/Lax/omarchy-overlay.git
@@ -45,8 +40,8 @@ priority = 50
 ```
 
 Either way, keep it current with plain `emaint sync -r omarchy`. Then
-`emerge <category>/<package>`. Keyword everything `~amd64`/`~arm64`
-(accept the unstable keyword as usual).
+`emerge <category>/<package>`. Packages are keyworded `~amd64`/`~arm64`;
+accept the unstable keyword as usual.
 
 The `-bin` and vendor packages carry proprietary licenses (the
 `all-rights-reserved` token). Accept them like any other proprietary
@@ -156,5 +151,7 @@ Nobody shepherds the overlay by hand; the loop closes itself:
 - `helpers/gentoo-packages.tsv` maps Arch names to overlay locations; it is
   what makes `bin/sync-gentoo` reconcile ebuilds and what makes the
   coverage queue complete. Add the row as part of any port.
-- The `overlay` branch is generated; never edit it directly. It is
-  rewritten wholesale from `gentoo/` on every merge to master.
+- The published
+  [omarchy-overlay](https://github.com/Lax/omarchy-overlay) repository is
+  generated; never edit it directly. It is rewritten from `gentoo/` on
+  every merge to master.
