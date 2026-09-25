@@ -358,8 +358,11 @@ jobs:
           git config --global user.name "omarchy-gentoo-ci"
           git config --global user.email "hello@omarchy.org"
           # gitlink noise never reaches the mirror; the submodule pointer is
-          # management-repo state, not overlay content.
+          # management-repo state, not overlay content. Its pinned commit is
+          # recorded instead, in PROVENANCE and in the mirror commit message.
           rm -rf "$PWD/overlay-staging/omarchy-pkgs"
+          master_sha=$(git -C "$GITHUB_WORKSPACE" rev-parse HEAD)
+          upstream_sha=$(git -C "$GITHUB_WORKSPACE/omarchy-pkgs" rev-parse HEAD)
 
           # Fast-forward history when the overlay branch exists, start it
           # when it does not; then replace the tree wholesale with the
@@ -378,12 +381,32 @@ jobs:
           cp -a "$GITHUB_WORKSPACE/overlay-staging/." .
           git config --global --add safe.directory /tmp/overlay
 
+          # Provenance stamp: which master commit generated this tree and
+          # which omarchy-pkgs commit its recipes reflect. Deliberately
+          # content-derived only (no timestamp, no run url) so a mirror run
+          # whose inputs did not move still hits the no-diff short-circuit
+          # below instead of committing noise.
+          cat > PROVENANCE <<EOF
+          omarchy-gentoo overlay, mirrored from the master branch of
+          https://github.com/Lax/omarchy-gentoo (the gentoo/ directory).
+
+          master:   $master_sha
+          upstream: $upstream_sha
+
+          master   the omarchy-gentoo commit this tree was generated from
+          upstream the omacom/omarchy-pkgs commit its PKGBUILDs reflect,
+                   i.e. the submodule pin carried by that master commit
+
+          The overlay branch's own commit history records when each mirror
+          ran; both ids also appear in every mirror commit message.
+          EOF
+
           git add -A
           if git diff --cached --quiet; then
             echo "overlay branch is up to date"
             exit 0
           fi
-          git commit --quiet -m "overlay: mirror gentoo/ from ${GITHUB_SHA::12}"
+          git commit --quiet -m "overlay: mirror gentoo/ from ${master_sha::12} (omarchy-pkgs ${upstream_sha::12})"
           git push --quiet "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
             HEAD:refs/heads/overlay
 

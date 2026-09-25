@@ -25,6 +25,9 @@ tooling cannot disagree with itself.
 ## Repository layout
 
 - `gentoo/` — the overlay. Never commit `Manifest` files; CI generates them.
+  The mirrored `overlay` branch carries a root `PROVENANCE` file recording
+  the master commit it was generated from and the `omarchy-pkgs` commit its
+  recipes reflect; both ids are also in every mirror commit message.
 - `omarchy-pkgs/` — submodule (named after the upstream repo). Update it
   via the `Upstream sync` automation, or by hand:
   `git submodule update --remote omarchy-pkgs`.
