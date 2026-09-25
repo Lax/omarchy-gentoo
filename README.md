@@ -18,8 +18,32 @@ eselect repository add omarchy git https://github.com/Lax/omarchy-overlay.git
 emaint sync -r omarchy
 ```
 
-Then `emerge <category>/<package>`. Packages are keyworded `~amd64`/`~arm64`
-and the `-bin` ones carry proprietary licenses — accept them as usual, e.g.
+### Install Omarchy
+
+**Minimal** — the desktop core:
+
+```bash
+emerge app-misc/omarchy
+```
+
+That brings in the Hyprland session, the quickshell desktop shell, the SDDM
+login manager, PipeWire audio, the screen-share portals and the Omarchy
+command line, themes and default settings (`app-misc/omarchy-settings`,
+upgraded in lockstep with the core).
+
+**Full** — the core plus the default application set upstream ships on its
+ISO (147 packages: browsers, terminal tools, printing, containers, ...).
+The list lives in
+[upstream's `omarchy-base.packages`](https://github.com/basecamp/omarchy/blob/master/install/omarchy-base.packages)
+and most of it emerges under the same names; a one-command
+`app-misc/omarchy-base` metapackage for it is planned (see
+`docs/gentoo.md`).
+
+The kernel and bootloader are not part of this — on Gentoo those are yours
+to run; the Arch boot stack is intentionally not ported.
+
+Everything is keyworded `~amd64`/`~arm64` and the `-bin` packages carry
+proprietary licenses — accept them as usual, e.g.
 `*/* all-rights-reserved` in `/etc/portage/package.license`. If you don't
 use eselect-repository, `docs/gentoo.md` has a hand-written variant.
 
