@@ -19,15 +19,17 @@ by side in colorings.svg:
   signet-official  the signet's own gradient transforms with stops re-laid
                    onto the unified palette (soft 3-D)
 
-The wordmark is JetBrains Mono Bold, set lowercase as "omarchy on gentoo"
-(display name; the repo slug stays omarchy-gentoo). Following
+The wordmark is JetBrains Mono Bold, set lowercase as "[ omarchy on
+gentoo ]" -- the brackets echo the icon's ring (display name; the repo
+slug stays omarchy-gentoo). Following
 omacom/omarchy's own asset management, the canonical trio lives here:
-logo.svg (monochrome wordmark), logo.txt (its ASCII twin) and icon.png
-(300x300 raster of the mark).
+logo.svg (monochrome bracketed wordmark), logo.txt (block-art "omarchy" +
+plain-text "[ omarchy on gentoo ]") and icon.png (300x300 raster of the
+mark).
 
-Usage: MARK_COLORING=flat python3 generate.py
-  needs fonttools + JetBrains Mono Nerd Font (wordmark paths),
-  rsvg-convert (PNG exports) and ImageMagick (logo.txt sampling).
+Usage: MARK_COLORING=bands4 python3 generate.py
+  needs fonttools + JetBrains Mono Nerd Font (wordmark paths) and
+  rsvg-convert (PNG exports).
 """
 import os
 import re
@@ -272,7 +274,8 @@ write("social-preview.svg",
 
 # ---- omarchy-style canonical trio -------------------------------------------
 # logo.svg: monochrome wordmark, tight viewBox, fill #000 (recolor at will).
-WM = "omarchy on gentoo"
+# The brackets echo the icon's ring -- omarchy's brackets frame the name.
+WM = "[ omarchy on gentoo ]"
 wx0, wy0, ww_, wh_ = text_ink_box(BOLD, WM, 200)
 pad = 8
 write("logo.svg",
@@ -293,47 +296,34 @@ subprocess.run(["rsvg-convert", "-w", "1280", "-h", "640",
                 os.path.join(HERE, "social-preview.svg"),
                 "-o", os.path.join(HERE, "social-preview.png")], check=True)
 
-# logo.txt: ASCII twin of the wordmark, two lines, half-block sampling.
-COLS = 60
-tmp_png = "/tmp/logo-wordmark.png"
-lines = ["omarchy", "on gentoo"]
-S = 200
-lh = int(S * 1.45)
-maxw = max(text_ink_box(BOLD, ln, S)[2] for ln in lines)
-svg_lines = []
-for i, ln in enumerate(lines):
-    ix, iy, iw, ih = text_ink_box(BOLD, ln, S)
-    svg_lines.append(text_runs(BOLD, [(ln, "#000")], S, -ix, lh * i - iy + S * 0.1)[0])
-block_w, block_h = maxw + 4, lh * len(lines) + int(S * 0.1)
-svg_lines_svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {block_w:.0f} {block_h}" '
-                 f'width="{block_w:.0f}" height="{block_h:.0f}">{"".join(svg_lines)}</svg>')
-with open("/tmp/logo-wordmark.svg", "w") as fh:
-    fh.write(svg_lines_svg)
-subprocess.run(["rsvg-convert", "-w", str(COLS * 12), "/tmp/logo-wordmark.svg",
-                "-o", tmp_png], check=True)
-sampling = subprocess.run(
-    ["magick", tmp_png, "-alpha", "extract",
-     "-resize", f"{COLS}x{int(block_h / block_w * COLS * 2)}!", "-threshold", "50%", "txt:-"],
-    capture_output=True, text=True, check=True).stdout
-cells = {}
-for ln in sampling.splitlines()[1:]:
-    m = re.match(r"(\d+),(\d+):.*?\((\d+)", ln)
-    if m:
-        cells[(int(m.group(2)), int(m.group(1)))] = int(m.group(3)) >= 128
-rh = max(r for r, c in cells)
-cw = max(c for r, c in cells)
-rows = []
-for r in range(0, rh, 2):
-    row = []
-    for c in range(cw + 1):
-        top = cells.get((r, c), False)
-        bot = cells.get((r + 1, c), False)
-        row.append("█" if top and bot else "▀" if top else "▄" if bot else " ")
-    rows.append("".join(row).rstrip())
-while rows and not rows[0]:
-    rows.pop(0)
-while rows and not rows[-1]:
-    rows.pop()
-write("logo.txt", "\n".join(rows) + "\n")
+# logo.txt: the name in a compact hand-set block font -- 4 rows tall,
+# omarchy's own logo.txt aesthetic scaled down for TTY use.
+GLYPHS = {
+    "o": ["▄▀▀▄", "█  █", "█  █", "▀▄▄▀"],
+    "m": ["█▄▄▄█", "█ █ █", "█ █ █", "▀ ▀ ▀"],
+    "a": ["▄▀▀▄", "▄▄▄█", "█  █", "▀▄▄▀"],
+    "r": ["█▄▄▄", "█  █", "█   ", "▀   "],
+    "c": ["▄▀▀▀", "█   ", "█   ", "▀▄▄▀"],
+    "h": ["█ ▄▄", "█  █", "█  █", "▀  ▀"],
+    "y": ["█  █", "▀▄ █", " ▄█", " ▀ "],
+    "g": ["▄▀▀▄", "█  █", "▀▄▄█", "▄▄▀ "],
+    "e": ["▄▀▀▄", "█▄▄▄", "█  █", "▀▄▄▀"],
+    "n": ["  ▄▄", "█  █", "█  █", "▀  ▀"],
+    "t": [" ▄ ", "███", " █ ", " ▀ "],
+    " ": ["  ", "  ", "  ", "  "],
+}
+
+
+def ascii_text(text):
+    glyphs = [GLYPHS[ch] for ch in text]
+    return [" ".join(g[r] for g in glyphs).rstrip() for r in range(4)]
+
+
+# logo.txt: block-art "omarchy" (hand-set block font) + the bracketed
+# project name as a plain-text line -- compact for TTY.
+l1 = ascii_text("omarchy")
+art_w = max(len(r) for r in l1)
+l2 = "[ omarchy on gentoo ]".center(art_w).rstrip()
+write("logo.txt", "\n".join(l1 + ["", l2]) + "\n")
 
 print(f"brand assets regenerated in {HERE} (coloring: {COLORING})")

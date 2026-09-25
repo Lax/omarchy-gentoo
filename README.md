@@ -59,7 +59,8 @@ The project is **Omarchy on Gentoo** — an intentional echo of Ruby on
 Rails, by the same author — while the repository slug stays
 `omarchy-gentoo` (lowercase, hyphenated) and the Portage repository users
 configure is `omarchy`. The mark frames the official Gentoo signet **g**
-inside omarchy's bracket ring — Gentoo purple lit by a Tokyo Night green
-shine; the wordmark is JetBrains Mono. Canonical forms, palette, the
-`logo.svg` / `logo.txt` / `icon.png` trio, and asset inventory live in
+inside omarchy's bracket ring — the g climbs a four-step band ladder from
+omarchy green into gentoo purple; the wordmark is JetBrains Mono.
+Canonical forms, palette, the `logo.svg` / `logo.txt` / `icon.png` trio,
+and asset inventory live in
 [`assets/logo/README.md`](assets/logo/README.md).

@@ -69,8 +69,8 @@ named file per medium, kept side by side:
 
 | File | Use |
 | --- | --- |
-| `logo.svg` | the wordmark, monochrome `fill="#000"` — recolor or restyle freely |
-| `logo.txt` | the wordmark's ASCII twin for terminals (fastfetch, motd, README code blocks) |
+| `logo.svg` | the wordmark in the icon's brackets — `[ omarchy on gentoo ]`, monochrome `fill="#000"`, recolor at will |
+| `logo.txt` | block-art `omarchy` (hand-set 4-row font) + plain-text `[ omarchy on gentoo ]` — 35 cols, TTY-safe `▄█▀` only |
 | `icon.png` | 300×300 raster of the mark, drop-in anywhere omarchy's `icon.png` would go |
 
 The full kit around them:
