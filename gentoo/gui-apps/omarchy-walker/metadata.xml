@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="project">
+		<email>hello@omarchy.org</email>
+		<name>Omarchy</name>
+	</maintainer>
+	<longdescription>
+		Transitional package: gui-apps/omarchy-walker moved to omarchy/omarchy-walker. Installs nothing;
+		depends on the new location so upgrades migrate cleanly.
+	</longdescription>
+</pkgmetadata>
