@@ -1,0 +1,33 @@
+# Dismiss the screensaver on mouse motion, not just key presses.
+#
+# bin/omarchy-screensaver exits only when its `read -n1 -t 1` loop sees bytes
+# on stdin (keyboard) or the window loses focus. Mouse motion produces
+# neither: terminals do not report pointer movement to applications unless
+# the app asks for it, so wiggling the mouse never dismisses the screensaver
+# even though the script's own header comment claims "input from keyboard
+# and mouse".
+#
+# Enable xterm any-motion mouse reporting (DECSET 1003, SGR encoding 1006)
+# on the screensaver terminal while the effect runs. foot (and the other
+# supported terminals) then stream motion events into the pty, the existing
+# read loop picks the first byte up, and every screensaver window exits
+# through the same exit_screensaver path as a key press. Tracking is
+# disabled again on the way out.
+--- a/bin/omarchy-screensaver
++++ b/bin/omarchy-screensaver
+@@ -7,6 +7,7 @@
+ }
+ 
+ exit_screensaver() {
++  printf '\033[?1003l\033[?1006l'  # disable mouse tracking
+   hyprctl eval 'hl.config({ cursor = { invisible = false } })' &>/dev/null || hyprctl keyword cursor:invisible false &>/dev/null || true
+   pkill -x ttfx 2>/dev/null
+   pkill -f '[o]rg.omarchy.screensaver' 2>/dev/null
+@@ -17,6 +18,7 @@
+ trap exit_screensaver SIGINT SIGTERM SIGHUP SIGQUIT
+ 
+ printf '\033]11;rgb:00/00/00\007'  # Set background color to black
++printf '\033[?1003h\033[?1006h'  # enable any-motion mouse reporting: wiggle the pointer to dismiss
+ 
+ hyprctl eval 'hl.config({ cursor = { invisible = true } })' &>/dev/null || hyprctl keyword cursor:invisible true &>/dev/null
+ 

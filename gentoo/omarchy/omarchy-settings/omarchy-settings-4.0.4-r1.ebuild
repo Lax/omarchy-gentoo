@@ -205,6 +205,10 @@ src_install() {
 	# Branding assets.
 	insinto "${om}"
 	doins logo.txt logo.svg icon.txt icon.png
+	# OMARCHY × Gentoo screensaver variant. Flashed occasionally by the patched
+	# omarchy-screensaver (omarchy/omarchy); logo.txt itself stays the upstream
+	# art so `omarchy branding screensaver reset` keeps restoring Omarchy's own.
+	newins "${FILESDIR}"/omarchy-gentoo-branding-screensaver.txt logo-gentoo.txt
 	insinto /usr/share/pixmaps
 	newins icon.png omarchy.png
 	dosym ../../../pixmaps/omarchy.png /usr/share/icons/hicolor/256x256/apps/omarchy.png
@@ -213,6 +217,7 @@ src_install() {
 	# re-sync with omarchy-reinstall-configs).
 	insinto /etc/skel/.config/omarchy/branding
 	newins logo.txt screensaver.txt
+	newins "${FILESDIR}"/omarchy-gentoo-branding-screensaver.txt screensaver-gentoo.txt
 	newins icon.txt about.txt
 	insinto /etc/skel/.local/state/omarchy/toggles/hypr
 	doins default/hypr/toggles/flags.lua
@@ -245,6 +250,9 @@ pkg_postinst() {
 	elog "  new users get it via /etc/skel; existing users re-sync with:"
 	elog "    rsync -a --exclude=.bashrc /usr/share/omarchy/config/ ~/.config/"
 	elog "  /etc drop-ins landed under CONFIG_PROTECT; merge updates with dispatch-conf."
+	elog "  Screensaver: an OMARCHY × Gentoo variant is flashed ~1 cycle in 5."
+	elog "    Personalize (or disable with an empty file) via:"
+	elog "    ~/.config/omarchy/branding/screensaver-gentoo.txt"
 	elog "  Units shipped but not enabled; wire per user via, e.g.:"
 	elog "    systemctl --user enable --now omarchy-crash-watch.service"
 	if ! has_version sys-boot/plymouth; then

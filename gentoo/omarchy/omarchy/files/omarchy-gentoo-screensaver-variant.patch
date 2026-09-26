@@ -1,0 +1,28 @@
+--- a/bin/omarchy-screensaver
++++ b/bin/omarchy-screensaver
+@@ -35,8 +35,24 @@
+ 
+ wait_for_terminal_resize
+ 
++# Gentoo port: flash an OMARCHY × Gentoo collab art roughly one cycle in
++# five. The user's screensaver.txt stays the default. The variant comes from
++# the user's branding dir when it exists (an empty file disables the variant),
++# falling back to the package copy shipped by omarchy-settings.
++variant=
++if [[ -f ~/.config/omarchy/branding/screensaver-gentoo.txt ]]; then
++  variant=~/.config/omarchy/branding/screensaver-gentoo.txt
++  [[ -s $variant ]] || variant=
++elif [[ -s /usr/share/omarchy/logo-gentoo.txt ]]; then
++  variant=/usr/share/omarchy/logo-gentoo.txt
++fi
++
+ while true; do
+-  ttfx -i ~/.config/omarchy/branding/screensaver.txt \
++  text=~/.config/omarchy/branding/screensaver.txt
++  if [[ -n $variant ]] && ((RANDOM % 5 == 0)); then
++    text=$variant
++  fi
++  ttfx -i "$text" \
+     --frame-rate 120 --canvas-width 0 --canvas-height 0 --reuse-canvas --anchor-canvas c --anchor-text c\
+     --random-effect --no-eol --no-restore-cursor &
+ 
