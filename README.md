@@ -57,7 +57,11 @@ to run; the Arch boot stack is intentionally not ported.
 Everything is keyworded `~amd64`/`~arm64` and the `-bin` packages carry
 proprietary licenses — accept them as usual, e.g.
 `*/* all-rights-reserved` in `/etc/portage/package.license`. If you don't
-use eselect-repository, `docs/gentoo.md` has a hand-written variant.
+use eselect-repository, `docs/gentoo.md` has a hand-written variant. Run
+the install with `--autounmask-write --autounmask-continue
+--autounmask-backtrack=y`; if a USE constraint violation is reported
+(e.g. dev-qt/qtbase wanting `libproxy` also requires `network`), enable
+the implied flags together in `/etc/portage/package.use` and re-run.
 
 ## Layout
 
