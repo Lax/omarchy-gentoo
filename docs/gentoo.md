@@ -5,7 +5,9 @@ overlay. The Arch recipes are not part of this repository: they live in the
 pinned `omarchy-pkgs/` submodule (omacom/omarchy-pkgs), and everything else here
 — overlay, tooling, automation — is ours. This document is the contract for
 humans and AI agents working on the overlay; `AGENTS.md` at the repository
-root is the shorter entry point.
+root is the shorter entry point. End-user install documentation lives in
+`gentoo/README.md` — the overlay's own README, mirrored to
+[Lax/omarchy-overlay](https://github.com/Lax/omarchy-overlay).
 
 ## Why a source-based overlay (and not a binhost)
 
@@ -16,43 +18,6 @@ An overlay compiles on the user's machine with the user's settings, which
 also makes the nightly smoke-emerge meaningful. A binhost for the
 `-bin` packages (which need no USE matching) can be layered on the same
 ebuilds later.
-
-## Using the overlay
-
-The overlay lives in its own repository,
-[Lax/omarchy-overlay](https://github.com/Lax/omarchy-overlay). On a Gentoo
-machine:
-
-```bash
-eselect repository add omarchy git https://github.com/Lax/omarchy-overlay.git
-emaint sync -r omarchy
-```
-
-Or hand-write the repository definition:
-
-```ini
-# /etc/portage/repos.conf/omarchy.conf
-[omarchy]
-location = /var/db/repos/omarchy
-sync-type = git
-sync-uri = https://github.com/Lax/omarchy-overlay.git
-priority = 50
-```
-
-Either way, keep it current with plain `emaint sync -r omarchy`. Then
-`emerge <category>/<package>`. Packages are keyworded `~amd64`/`~arm64`;
-accept the unstable keyword as usual.
-
-The `-bin` and vendor packages carry proprietary licenses (the
-`all-rights-reserved` token). Accept them like any other proprietary
-Gentoo package, e.g. in `/etc/portage/package.license`:
-
-```
-# /etc/portage/package.license/omarchy
-*/* all-rights-reserved
-```
-
-(or list the specific `category/pkg` lines if you prefer narrower grants).
 
 ## Scope: what is ported, and what deliberately is not
 
