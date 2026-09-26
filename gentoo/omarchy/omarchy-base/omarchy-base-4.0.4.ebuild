@@ -16,7 +16,7 @@
 #   fcitx5-qt -> app-i18n/fcitx-qt
 #   gnome-themes-extra -> x11-themes/gnome-themes-standard
 #   gvfs-mtp/nfs/smb -> gnome-base/gvfs[mtp,nfs,samba]
-#   libreoffice-fresh -> app-office/libreoffice
+#   libreoffice-fresh -> || (libreoffice-bin, libreoffice)
 #   lua51 -> dev-lang/lua:5.1
 #   mariadb-libs -> dev-db/mariadb-connector-c
 #   noto-fonts{,-cjk,-emoji} -> media-fonts/noto{,-cjk,-emoji}
@@ -129,7 +129,10 @@ RDEPEND="
 	app-i18n/fcitx-qt
 	app-misc/jq
 	app-misc/ttfx
-	app-office/libreoffice
+	|| (
+		app-office/libreoffice-bin
+		app-office/libreoffice
+	)
 	app-shells/gum
 	app-text/tessdata_fast
 	dev-db/mariadb-connector-c
