@@ -114,7 +114,14 @@ RDEPEND="
 	sys-fs/udiskie
 	sys-power/power-profiles-daemon
 	sys-process/btop
-	www-client/chromium
+	|| (
+		omarchy/omarchy-chromium-bin
+		www-client/google-chrome
+		www-client/google-chrome-beta
+		www-client/microsoft-edge
+		www-client/firefox
+		www-client/chromium
+	)
 	app-containers/docker
 	app-editors/neovim
 	app-i18n/fcitx

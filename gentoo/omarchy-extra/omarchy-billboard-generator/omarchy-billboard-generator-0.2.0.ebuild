@@ -28,7 +28,12 @@ KEYWORDS="~amd64 ~arm64"
 RDEPEND="
 	>=net-libs/nodejs-22
 	media-video/ffmpeg
-	www-client/chromium
+	|| (
+		omarchy/omarchy-chromium-bin
+		www-client/google-chrome
+		www-client/google-chrome-beta
+		www-client/chromium
+	)
 	x11-misc/xdg-utils
 "
 BDEPEND="net-libs/nodejs"

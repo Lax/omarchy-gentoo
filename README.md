@@ -20,6 +20,15 @@ emaint sync -r omarchy
 
 ### Install Omarchy
 
+The desktop core pulls Hyprland and quickshell from two companion
+overlays — add them alongside:
+
+```bash
+eselect repository enable guru
+eselect repository add hyproverlay git https://codeberg.org/hyproverlay/hyproverlay.git
+emaint sync -r guru -r hyproverlay
+```
+
 **Minimal** — the desktop core:
 
 ```bash
