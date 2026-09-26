@@ -37,6 +37,7 @@ src_install() {
 	# Desktop entry: point at the installed binary/icon name and add the
 	# StartupWMClass the Arch package adds, for taskbar pinning.
 	sed -i -e 's|^Exec=localsend_app|Exec=localsend|' \
+		-e 's|^Exec=/opt/localsend_app/localsend_app|Exec=localsend|' \
 		-e 's|^Icon=.+|Icon=localsend|' \
 		-e '/^Exec=localsend/a StartupWMClass=org.localsend.localsend_app' \
 		usr/share/applications/localsend_app.desktop || die
@@ -47,7 +48,14 @@ src_install() {
 		mv "${ED}/usr/share/icons/hicolor/${res}/apps/localsend_app.png" \
 			"${ED}/usr/share/icons/hicolor/${res}/apps/localsend.png" || die
 	done
-	dobin usr/bin/localsend_app
+	# The release moved the Flutter app (with its bundled libs) into
+	# /opt/localsend_app; keep that layout under /opt/localsend, rename the
+	# binary to match the desktop entry and expose it on PATH.
+	dodir /opt/localsend /usr/bin
+	cp -a opt/localsend_app/. "${ED}"/opt/localsend/ || die
+	mv "${ED}"/opt/localsend/localsend_app "${ED}"/opt/localsend/localsend || die
+	dosym ../../opt/localsend/localsend /usr/bin/localsend
+
 	insinto /usr/share/licenses/${PF}
 	doins "${FILESDIR}"/LICENSE
 }
