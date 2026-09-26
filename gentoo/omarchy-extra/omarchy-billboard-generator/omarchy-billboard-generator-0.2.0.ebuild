@@ -23,6 +23,8 @@ KEYWORDS="~amd64 ~arm64"
 # src_compile runs 'npm ci', which needs the network; the nightly smoke job
 # emerges with FEATURES=-network-sandbox for this package's sake.
 
+# Rendering drives a Chromium-family browser; ::gentoo's chromium is
+# package.masked (removal 2026-10-24), so any of these satisfies it.
 RDEPEND="
 	>=net-libs/nodejs-22
 	media-video/ffmpeg
