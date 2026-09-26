@@ -159,6 +159,14 @@ src_install() {
 		[[ -e ${migration} ]] || continue
 		touch "${ED}/etc/skel/.local/state/omarchy/migrations/${migration##*/}"
 	done
+
+	# The lock screen (shell/plugins/lock) authenticates through Quickshell's
+	# Services.Pam, which reads exactly this PAM service; without it every lock
+	# request is denied ("missing-pam") and idle never escalates past the
+	# screensaver. Upstream seeds it outside its packages, so the port owns it
+	# here. Keep last: insinto is sticky for subsequent doins.
+	insinto /etc/pam.d
+	doins "${FILESDIR}"/omarchy-lock-password
 }
 
 pkg_postinst() {
