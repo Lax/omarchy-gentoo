@@ -11,7 +11,11 @@ it tells you which gate proves your work.
 A Gentoo ebuild overlay for Omarchy packages, published to the
 [omarchy-overlay](https://github.com/Lax/omarchy-overlay) repository
 (whose tree root IS the overlay; CI republishes it on every merge to
-master). The Arch recipes it is derived from are **not** part of this
+master). The former mirror
+[omarchy-gentoo-archive](https://github.com/Lax/omarchy-gentoo-archive)
+is a read-only tombstone (archived 2026-09-25): it is not a publish
+target, receives no pushes, and nothing should be retargeted at it.
+The Arch recipes it is derived from are **not** part of this
 repository: they live in the pinned `omarchy-pkgs/` submodule
 (omacom/omarchy-pkgs, tracked to its master branch). This is a two-root project:
 
