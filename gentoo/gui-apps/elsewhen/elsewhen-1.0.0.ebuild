@@ -11,7 +11,7 @@ SLOT="0"
 KEYWORDS="~amd64 ~arm64"
 
 RDEPEND="
-	app-misc/omarchy
+	omarchy/omarchy
 	dev-lang/python
 	gui-apps/quickshell
 "

@@ -23,19 +23,19 @@ emaint sync -r omarchy
 **Minimal** — the desktop core:
 
 ```bash
-emerge app-misc/omarchy
+emerge omarchy/omarchy
 ```
 
 That brings in the Hyprland session, the quickshell desktop shell, the SDDM
 login manager, PipeWire audio, the screen-share portals and the Omarchy
-command line, themes and default settings (`app-misc/omarchy-settings`,
+command line, themes and default settings (`omarchy/omarchy-settings`,
 upgraded in lockstep with the core).
 
 **Full** — the core plus the default application set upstream ships on its
 ISO (147 packages: browsers, terminal tools, printing, containers, ...):
 
 ```bash
-emerge app-misc/omarchy-base
+emerge omarchy/omarchy-base
 ```
 
 It maps [upstream's `omarchy-base.packages`](https://github.com/basecamp/omarchy/blob/master/install/omarchy-base.packages)

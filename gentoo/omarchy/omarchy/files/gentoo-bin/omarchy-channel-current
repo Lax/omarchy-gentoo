@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# omarchy:summary=Print the current Omarchy update channel.
+# Gentoo port: this overlay only packages the stable (pinned) line; when an
+# edge channel is added it will report "edge" here.
+
+if ! qlist -Ie omarchy/omarchy >/dev/null 2>&1; then
+  echo "Omarchy is not installed" >&2
+  exit 1
+fi
+
+echo "stable"

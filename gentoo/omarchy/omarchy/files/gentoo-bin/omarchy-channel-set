@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# omarchy:summary=Switch the Omarchy update channel (stable, rc, edge)
+# omarchy:args=<stable|rc|edge>
+# Gentoo port: there is no pacman repository to repoint. stable is the pinned
+# ebuild line; an edge (quattro live) channel is not packaged yet — see
+# ROADMAP.md.
+
+case "${1:-}" in
+  stable)
+    echo "stable is the only channel this overlay packages:"
+    echo "  emerge --noreplace omarchy/omarchy omarchy/omarchy-settings"
+    exit 0
+    ;;
+  edge|rc)
+    echo "No edge/rc channel on Gentoo yet (see ROADMAP.md)." >&2
+    echo "The overlay only pins released upstream tags for now." >&2
+    exit 1
+    ;;
+  *)
+    echo "Error: Invalid channel '${1:-}'. Must be one of: stable, rc, edge" >&2
+    exit 1
+    ;;
+esac

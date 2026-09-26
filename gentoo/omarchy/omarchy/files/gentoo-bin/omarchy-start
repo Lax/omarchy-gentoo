@@ -1,0 +1,33 @@
+#!/bin/bash
+
+# omarchy:summary=Start the Omarchy desktop session from a TTY (startx-style).
+# Overlay-authored (upstream enters the desktop through SDDM autologin): log
+# into a virtual console and run `omarchy-start` — the startx-equivalent. If
+# upstream ever ships its own bin/omarchy-start, this replacement follows the
+# usual gentoo-bin override path.
+
+set -euo pipefail
+
+tty_path=$(tty 2>/dev/null) || tty_path=""
+
+case $tty_path in
+  /dev/tty[0-9]*) ;;
+  *)
+    echo "omarchy-start: run this from a virtual console (TTY), not from a" >&2
+    echo "graphical session or terminal emulator (got: ${tty_path:-none})." >&2
+    echo "Inside a session, log out first; remotely, use a real console or" >&2
+    echo "invoke 'uwsm start omarchy.desktop' deliberately." >&2
+    exit 1
+    ;;
+esac
+
+if ! command -v uwsm >/dev/null 2>&1; then
+  echo "omarchy-start: uwsm not found (gui-apps/uwsm; omarchy/omarchy pulls it in)." >&2
+  echo "Falling back to a bare Hyprland start: uwsm-managed features (uwsm-app" >&2
+  echo "launchers, XDG autostart target, clean logout) will be missing." >&2
+  sleep 2
+  exec Hyprland
+fi
+
+# The same entry SDDM would launch: /usr/share/wayland-sessions/omarchy.desktop
+exec uwsm start omarchy.desktop
