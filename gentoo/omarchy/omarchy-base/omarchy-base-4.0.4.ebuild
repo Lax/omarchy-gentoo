@@ -10,7 +10,7 @@
 #
 # Non-trivial mappings (arch name -> atom):
 #   bluez-utils -> net-wireless/bluez          (tools live in bluez here)
-#   dotnet-runtime -> dev-dotnet/dotnet-sdk    (closest ::gentoo atom)
+#   dotnet-runtime -> virtual/dotnet-sdk    (closest ::gentoo atom)
 #   fcitx5 -> app-i18n/fcitx                   (fcitx5 renamed to fcitx)
 #   fcitx5-gtk -> app-i18n/fcitx-gtk
 #   fcitx5-qt -> app-i18n/fcitx-qt
@@ -134,7 +134,7 @@ RDEPEND="
 	app-text/tessdata_fast
 	dev-db/mariadb-connector-c
 	dev-db/postgresql
-	dev-dotnet/dotnet-sdk
+	virtual/dotnet-sdk
 	dev-lang/lua:5.1
 	dev-libs/libyaml
 	dev-python/poetry-core
