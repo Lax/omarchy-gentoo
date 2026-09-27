@@ -49,17 +49,22 @@ jobs:
         run: |
           set -eu
           cd /work
-          before=$(git submodule status omarchy-pkgs | awk '{print $1}')
-          git submodule update --remote omarchy-pkgs
-          after=$(git submodule status omarchy-pkgs | awk '{print $1}')
-          if [[ "$before" == "$after" ]]; then
+          # The clone does not initialize submodules, so update needs --init;
+          # compare the pinned gitlink against the submodule tip itself —
+          # status-prefix comparisons would read the gitlink on both sides
+          # and always report the pin at the tip (this bug silently no-op'd
+          # every run before 2026-09-26).
+          pinned=$(git ls-tree HEAD omarchy-pkgs | awk '{print $3}')
+          git submodule update --init --remote omarchy-pkgs
+          tip=$(git -C omarchy-pkgs rev-parse HEAD)
+          if [[ "$pinned" == "$tip" ]]; then
             echo "upstream pin is already at the tip"
             exit 0
           fi
-          echo "pin: ${before} -> ${after}"
+          echo "pin: ${pinned} -> ${tip}"
           bin/sync-gentoo | tee /tmp/reconcile.log
           git add -A
-          git commit --quiet -m "upstream: bump pin to $(git submodule status omarchy-pkgs | awk '{print substr($1, 1, 12)}'), reconcile ebuilds"
+          git commit --quiet -m "upstream: bump pin to $(git -C omarchy-pkgs rev-parse --short HEAD), reconcile ebuilds"
           git push --quiet origin master
           echo "pushed $(git rev-parse --short HEAD)"
           if grep -qE '^skip |FAIL |by hand' /tmp/reconcile.log; then
