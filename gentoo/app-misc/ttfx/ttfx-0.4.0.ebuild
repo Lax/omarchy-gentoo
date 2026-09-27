@@ -35,9 +35,12 @@ windows-sys@0.61.2
 
 inherit cargo
 
-# The x86 assembly engine needs nasm; without it the build falls back to
-# pure Rust (the recipe carries it as makedepends_x86_64).
-BDEPEND="amd64? ( dev-lang/nasm )"
+# Ported from pkgbuilds/ttfx. The 0.4.0 recipe adds nasm for its x86
+# assembly engine, but the engine's objects are non-PIC and Gentoo's
+# default PIE toolchain rejects the link (and a blanket -no-pie breaks
+# the -shared proc-macro crates). The build falls back to upstream's
+# supported pure-Rust mode instead; re-enable nasm only if the asm
+# becomes PIC-safe.
 
 DESCRIPTION="Terminal text effects as a single static binary"
 HOMEPAGE="https://github.com/omacom/ttfx"
@@ -49,8 +52,17 @@ LICENSE="MIT || ( Apache-2.0 MIT ) || ( Apache-2.0-with-LLVM-exception Apache-2.
 SLOT="0"
 KEYWORDS="~amd64 ~arm64"
 
+src_compile() {
+	# The default "asm" feature assembles non-PIC objects (nasm is probed
+	# at build time) that Gentoo's default PIE toolchain refuses to link;
+	# build the pure-Rust mode the crate ships as its fallback.
+	cargo_src_compile --no-default-features
+}
+
 src_install() {
-	cargo_src_install
+	# Match src_compile's feature set or cargo install recompiles with the
+	# default (asm) features and fails the PIE link again.
+	cargo_src_install --no-default-features
 
 	# Completions are rendered by the binary itself, like the Arch recipe.
 	"$(cargo_target_dir)/ttfx" --print-completion bash > "${T}"/ttfx.bash || die
