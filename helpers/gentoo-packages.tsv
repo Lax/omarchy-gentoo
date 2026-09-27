@@ -63,6 +63,7 @@ once-bin	app-misc	once-bin
 openai-codex-bin	dev-util	openai-codex-bin
 perplexity	app-misc	perplexity
 python-terminaltexteffects	dev-python	python-terminaltexteffects
+quickshell-git	gui-apps	quickshell
 retroarch-joypad-autoconfig-git	games-emulation	retroarch-joypad-autoconfig
 schist-bin	media-gfx	schist-bin
 slap-notes-bin	app-misc	slap-notes-bin

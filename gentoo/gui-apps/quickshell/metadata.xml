@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="project">
+		<email>hello@omarchy.org</email>
+		<name>Omarchy</name>
+	</maintainer>
+	<upstream>
+		<doc>https://quickshell.org/</doc>
+		<remote-id type="github">quickshell-mirror/quickshell</remote-id>
+	</upstream>
+	<!-- Ported for the omarchy desktop stack; the cmake surface is carried
+	from ::guru's ebuild, which this pin tracks upstream of. -->
+</pkgmetadata>
