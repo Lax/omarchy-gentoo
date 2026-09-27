@@ -133,6 +133,14 @@ cd omarchy-gentoo
 The full overlay gates need docker (gentoo/stage3) and take a while;
 `bin/ai-port --verify <category>/<name>` scopes them to one package.
 
+The local portage copy at `/var/db/repos/omarchy` is maintained by
+`emaint sync` (owner: `portage`) - it is production state, not a dev tree.
+Test hotfixes written there (sudo cp of a fixed ebuild) are temporary:
+revert once the fix is published - `git -C /var/db/repos/omarchy status
+--short` empty, ownership uniformly `portage:portage`. Root-owned files there
+break the next sync with code 128; recover with `chown -R portage:portage` +
+`git reset --hard origin/master`.
+
 ## The gates (what CI runs)
 
 - `gentoo-tooling.yml`: the self-tests above, mapping-table/overlay

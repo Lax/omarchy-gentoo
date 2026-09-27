@@ -24,6 +24,19 @@ live in the `omarchy-pkgs/` submodule; `upstream-sync.yml`'s issue filings and
    `old=$(git -C omarchy-pkgs rev-parse HEAD)`.
 3. Confirm docker is present (`docker info`) — the heavy gates need it. If
    absent, everything except Step 6 still runs.
+4. **Synced-repo discipline**: `/var/db/repos/omarchy` (the user's portage
+   copy) is maintained by `emaint sync` — it is production state, not a
+   second dev tree. Hotfixes for local testing (e.g. copying a fixed
+   ebuild in with sudo) are temporary: once the fix is committed and
+   published, restore the state — `git -C /var/db/repos/omarchy status
+   --short` must be empty and everything owned by `portage:portage`. Root-owned
+   files planted there break the next `emaint sync` with code 128 (the
+   git child runs as the repo owner). Recovery, then re-sync:
+
+   ```
+   sudo chown -R portage:portage /var/db/repos/omarchy
+   sudo emaint sync -r omarchy
+   ```
 
 ## Step 1 — Sync the submodule
 
