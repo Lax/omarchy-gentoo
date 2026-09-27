@@ -258,6 +258,17 @@ cmd_self_test() {
 		(cd "$fixture" && ./bin/sync-gentoo fixture >/dev/null 2>&1)
 		check "older recipe does not downgrade" "yes" \
 			"$([[ -f "$fixture/gentoo/app-misc/fixture/fixture-1.1.0.ebuild" ]] && echo yes || echo no)"
+
+		# No arguments: the documented "every row in the table" sync. This
+		# guards the dispatch - the empty-args path used to be a silent
+		# no-op and the upstream-sync automation shipped months of renames
+		# that never landed.
+		printf '%s\n' "pkgname=fixture" "pkgver=1.2.0" "pkgrel=1" "arch=('any')" \
+			"license=('MIT')" "url='https://example.com'" \
+			>"$fixture/omarchy-pkgs/pkgbuilds/fixture/PKGBUILD"
+		(cd "$fixture" && ./bin/sync-gentoo >/dev/null 2>&1)
+		check "no-args sync renames every drifted row" "yes" \
+			"$([[ -f "$fixture/gentoo/app-misc/fixture/fixture-1.2.0.ebuild" ]] && echo yes || echo no)"
 	else
 		(cd "$fixture" && ./bin/sync-gentoo fixture >/dev/null 2>&1)
 		check "no vercmp: refuses to rename" "yes" \
@@ -282,8 +293,13 @@ if [[ "${1:-}" == --self-test ]]; then
 elif [[ "${1:-}" == --check ]]; then
 	shift
 	cmd_sync check "$@"
-elif [[ "${1:-}" == -h || "${1:-}" == --help || "${1:-}" == "" ]]; then
-	: # default below
+elif [[ "${1:-}" == -h || "${1:-}" == --help ]]; then
+	usage
+elif [[ "${1:-}" == "" ]]; then
+	# No arguments: the documented "every row in the table" sync. (This
+	# dispatch used to be a silent no-op — the upstream-sync automation ran
+	# it for months without a single rename landing.)
+	cmd_sync sync
 else
 	cmd_sync sync "$@"
 fi
