@@ -57,14 +57,25 @@ jobs:
           pinned=$(git ls-tree HEAD omarchy-pkgs | awk '{print $3}')
           git submodule update --init --remote omarchy-pkgs
           tip=$(git -C omarchy-pkgs rev-parse HEAD)
-          if [[ "$pinned" == "$tip" ]]; then
+          if [[ "$pinned" != "$tip" ]]; then
+            echo "pin: ${pinned} -> ${tip}"
+          else
             echo "upstream pin is already at the tip"
-            exit 0
           fi
-          echo "pin: ${pinned} -> ${tip}"
+          # Reconcile even at an unchanged pin: drift that pre-dates the pin
+          # move (or was missed while the reconcile itself was broken) is
+          # picked up here instead of waiting for the next bump.
           bin/sync-gentoo | tee /tmp/reconcile.log
           git add -A
-          git commit --quiet -m "upstream: bump pin to $(git -C omarchy-pkgs rev-parse --short HEAD), reconcile ebuilds"
+          if git diff --cached --quiet; then
+            echo "nothing to reconcile"
+            exit 0
+          fi
+          if [[ "$pinned" != "$tip" ]]; then
+            git commit --quiet -m "upstream: bump pin to $(git -C omarchy-pkgs rev-parse --short HEAD), reconcile ebuilds"
+          else
+            git commit --quiet -m "upstream: reconcile ebuild drift at pin $(git -C omarchy-pkgs rev-parse --short HEAD)"
+          fi
           git push --quiet origin master
           echo "pushed $(git rev-parse --short HEAD)"
           if grep -qE '^skip |FAIL |by hand' /tmp/reconcile.log; then
