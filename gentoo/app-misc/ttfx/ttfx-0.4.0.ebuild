@@ -1,4 +1,4 @@
-# arch-pkgver: 0.3.3
+# arch-pkgver: 0.4.0
 # Ported from pkgbuilds/ttfx.
 EAPI=8
 
@@ -35,9 +35,13 @@ windows-sys@0.61.2
 
 inherit cargo
 
+# The x86 assembly engine needs nasm; without it the build falls back to
+# pure Rust (the recipe carries it as makedepends_x86_64).
+BDEPEND="amd64? ( dev-lang/nasm )"
+
 DESCRIPTION="Terminal text effects as a single static binary"
-HOMEPAGE="https://github.com/omacom-io/ttfx"
-SRC_URI="https://github.com/omacom-io/ttfx/archive/refs/tags/v${PV}.tar.gz -> ${P}.tar.gz"
+HOMEPAGE="https://github.com/omacom/ttfx"
+SRC_URI="https://github.com/omacom/ttfx/archive/refs/tags/v${PV}.tar.gz -> ${P}.tar.gz"
 SRC_URI+=" ${CARGO_CRATE_URIS}"
 
 S="${WORKDIR}/${P}"
