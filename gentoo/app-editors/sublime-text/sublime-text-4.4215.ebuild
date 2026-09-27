@@ -1,4 +1,4 @@
-# arch-pkgver: 4.4213
+# arch-pkgver: 4.4215
 # Ported from pkgbuilds/sublime-text-4. The Arch name's trailing "-4" is a
 # version, not part of a legal Gentoo package name (PMS forbids a name ending
 # in -<digits>); the Gentoo package is app-editors/sublime-text and the tsv

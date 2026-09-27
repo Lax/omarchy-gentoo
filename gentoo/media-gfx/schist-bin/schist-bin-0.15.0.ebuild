@@ -1,4 +1,4 @@
-# arch-pkgver: 0.14.0
+# arch-pkgver: 0.15.0
 # Ported from pkgbuilds/schist-bin. The release asset is a pacman-format
 # payload assembled by upstream's packaging/linux/packages.sh from CI; this
 # re-wraps its usr/ tree, so RDEPEND has to stay in step with that script.

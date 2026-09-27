@@ -1,4 +1,4 @@
-# arch-pkgver: 1.138.0
+# arch-pkgver: 1.139.1
 # Ported from pkgbuilds/visual-studio-code-bin. The launcher is the upstream
 # visual-studio-code-bin.sh; flags go in ~/.config/code-flags.conf.
 EAPI=8
