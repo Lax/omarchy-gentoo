@@ -1,4 +1,4 @@
-# arch-pkgver: 1.8.1
+# arch-pkgver: 1.10.1
 # Ported from pkgbuilds/tobi-try. Three scripts pinned to one upstream
 # commit; the entry script's shebang is rewritten to the system ruby so a
 # user's mise-managed ruby cannot shadow it.

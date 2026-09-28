@@ -1,4 +1,4 @@
-# arch-pkgver: 0.0.3
+# arch-pkgver: 0.1.1
 # Ported from pkgbuilds/omawake-bin. Arch ships an ALPM PreTransaction hook
 # that stops and removes the app's user services across every user before
 # removal; on Gentoo the same shipped helper runs from pkg_prerm instead.
