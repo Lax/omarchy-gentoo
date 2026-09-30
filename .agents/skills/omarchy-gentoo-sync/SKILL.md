@@ -16,6 +16,15 @@ live in the `omarchy-pkgs/` submodule; `upstream-sync.yml`'s issue filings and
 
 ## Step 0 — Preflight
 
+0. **Coordinate with the automation first.** The `Upstream sync` automation
+   pushes pin bumps to master every 3h; a shared checkout can be days behind
+   it. `git fetch origin && git pull --rebase`, then take the old pin from
+   `git ls-tree origin/master omarchy-pkgs` — the recorded pin, not the
+   submodule checkout's HEAD (a stale local clone reported pin 592c85c on
+   2026-09-30 while master was already at 5a49a3f via 11 automation bumps).
+   Align the checkout to that pin with `git submodule update omarchy-pkgs`
+   before any delta analysis, and read the open `gentoo-overlay` issues —
+   each non-mechanical bump filed one.
 1. `git status --short` must show no unexpected modifications. This checkout
    is shared by concurrent agent sessions; if files you did not touch are
    modified (README, assets/logo, …), leave them alone and commit only your
@@ -142,6 +151,16 @@ Gate classifications to read correctly:
 - `ok <atom> (USE changes needed)` — fine: bare stage3 profile lacks desktop
   USE; the overlay's declarations are what's being checked.
 - `ok <atom> (graph blocked by tree fixture; atom ok via --nodeps)` — fine.
+- `FAIL` + `masked by: corruption` — the ebuild file name does not parse as
+  a PMS version at all (portage cannot see the package; the 2026-09
+  automation renames `…+build89647`/`…_23.BETA` were exactly this), or a
+  stale root-owned `gentoo/metadata/md5-cache` from an earlier container run
+  is poisoning the read. Check the file name first, then remove any
+  root-owned md5-cache. `gentoo_version`/`is_pms_version` in
+  `helpers/gentoo.sh` are the arbiters; `bin/sync-gentoo <pkg>` repairs the
+  name. Same verdict can also mean global-scope `usex` in an ebuild — portage
+  metadata generation runs without it; dispatch per-arch `S=` with
+  `if [[ ${ARCH} == amd64 ]]` instead.
 - `FAIL` on a package you didn't touch — investigate before assuming it's
   yours; check CI (`gh run list --workflow gentoo.yml`) for master parity.
 
