@@ -101,9 +101,29 @@ sync_one() {
 		return 0
 	}
 
+	local force_rename=0
 	if [[ "$baseline" == "$current_pv" ]]; then
-		echo "ok    $category/$gname at $baseline"
-		return 0
+		local name_version
+		name_version="$(basename "${ebuild%.ebuild}")"
+		name_version="${name_version#${gname}-}"
+		if is_pms_version "$name_version"; then
+			# Either the mechanical mangling or a deliberate hand-chosen name
+			# (a dropped commit hash, a Gentoo -r bump) - portage can see it.
+			echo "ok    $category/$gname at $baseline"
+			return 0
+		fi
+		# The marker matches the recipe, but the ebuild's file name parses as
+		# no PMS version at all (a rename that skipped gentoo_version, say),
+		# so portage cannot see the package. That is drift even though the
+		# version "matches".
+		if [[ "$mode" == check ]]; then
+			local want_pv
+			want_pv=$(gentoo_version "$current_pv")
+			echo "drift $category/$gname: file name does not mangle $baseline (expected $gname-$want_pv.ebuild)"
+			DRIFT=1
+			return 0
+		fi
+		force_rename=1
 	fi
 
 	local direction="?"
@@ -115,11 +135,11 @@ sync_one() {
 		echo "note  $category/$gname: recipe ($current_pv) is older than the ebuild's baseline ($baseline); leaving it alone"
 		return 0
 	fi
-	if [[ "$direction" == "=" || "$direction" == "0" ]]; then
+	if [[ "$direction" == "=" || "$direction" == "0" ]] && [[ $force_rename -eq 0 ]]; then
 		echo "ok    $category/$gname: $baseline and $current_pv compare equal"
 		return 0
 	fi
-	if [[ "$direction" == "?" ]]; then
+	if [[ "$direction" == "?" && $force_rename -eq 0 ]]; then
 		echo "skip  $category/$gname: $baseline -> $current_pv but vercmp is unavailable; refusing an unverifiable rename"
 		DRIFT=1
 		return 0
@@ -274,6 +294,41 @@ cmd_self_test() {
 		check "no vercmp: refuses to rename" "yes" \
 			"$([[ -f "$fixture/gentoo/app-misc/fixture/fixture-1.0.0.ebuild" ]] && echo yes || echo no)"
 	fi
+
+	# Marker matches the recipe but the file name skipped gentoo_version (the
+	# 2026-09 "+build"/".BETA" automation renames portage could not parse at
+	# all): the "ok" fast path must not bless it. Runs with or without vercmp
+	# - the versions are identical, so no upgrade direction is involved.
+	printf '%s\n' "pkgname=fixture" "pkgver=26.9.6+build89647" "pkgrel=1" "arch=('any')" \
+		"license=('MIT')" "url='https://example.com'" \
+		>"$fixture/omarchy-pkgs/pkgbuilds/fixture/PKGBUILD"
+	rm -f "$fixture"/gentoo/app-misc/fixture/*.ebuild
+	printf '%s\n' \
+		"# arch-pkgver: 26.9.6+build89647" \
+		"EAPI=8" \
+		'DESCRIPTION="fixture"' \
+		>"$fixture/gentoo/app-misc/fixture/fixture-26.9.6+build89647.ebuild"
+	rc=0
+	(cd "$fixture" && ./bin/sync-gentoo --check >/dev/null 2>&1) || rc=$?
+	check "non-PMS file name reported as drift" "1" "$rc"
+	(cd "$fixture" && ./bin/sync-gentoo fixture >/dev/null 2>&1)
+	check "non-PMS file name renamed to the mangling" "yes" \
+		"$([[ -f "$fixture/gentoo/app-misc/fixture/fixture-26.9.6_p89647.ebuild" ]] && echo yes || echo no)"
+	check "marker kept the raw Arch version" "26.9.6+build89647" \
+		"$(marker_pkgver "$fixture/gentoo/app-misc/fixture/fixture-26.9.6_p89647.ebuild")"
+	(cd "$fixture" && ./bin/sync-gentoo --check >/dev/null 2>&1)
+	check "renamed row back in sync" "0" "$?"
+
+	# A hand-simplified but PMS-valid name (dropped commit hash, Gentoo -r
+	# bump) is deliberate, not drift: only names portage cannot parse are.
+	rm -f "$fixture"/gentoo/app-misc/fixture/*.ebuild
+	printf '%s\n' \
+		"# arch-pkgver: 26.9.6+build89647" \
+		"EAPI=8" \
+		'DESCRIPTION="fixture"' \
+		>"$fixture/gentoo/app-misc/fixture/fixture-26.9.6-r1.ebuild"
+	(cd "$fixture" && ./bin/sync-gentoo --check >/dev/null 2>&1)
+	check "hand-simplified PMS-valid name is not drift" "0" "$?"
 
 	rm -rf "$fixture"
 

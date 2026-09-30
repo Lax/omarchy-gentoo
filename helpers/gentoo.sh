@@ -103,15 +103,33 @@ gentoo_location() {
 
 # Gentoo version from an Arch pkgver(+epoch): epochs are dropped (the overlay
 # has no history that needs one), dot-components that start with a letter are
-# folded to _<letters> (Gentoo suffix syntax) and any remaining characters
-# Gentoo cannot parse become _. pkgrel never applies to ebuilds.
+# folded to _<letters> lowercased (Gentoo suffix words are lowercase only),
+# "+<word><digits>" becomes _p<digits> ("+build89647" -> "_p89647"; '+' is not
+# a PMS character), an underscore directly before digits folds to a dot
+# ("_23" is not a suffix word; 1password's "8.12.40_23.BETA" -> "8.12.40.23_beta")
+# and any remaining characters Gentoo cannot parse become _. pkgrel never
+# applies to ebuilds.
 gentoo_version() {
 	local version="$1"
 	version=${version#*:} # epoch
 	printf '%s' "$version" |
-		sed -E 's/\.([A-Za-z][A-Za-z0-9]*)/_\1/g' |
-		tr -c 'A-Za-z0-9+._\n' '_' |
+		sed -E 's/\.([A-Za-z][A-Za-z0-9]*)/_\L\1/g' |
+		sed -E 's/\+[A-Za-z]*([0-9]+)/_p\1/g' |
+		sed -E 's/_([0-9]+)/.\1/g' |
+		tr -c 'a-z0-9._\n' '_' |
 		tr -d '\n'
+}
+
+# Whether a string parses as a PMS version at all: digit components, an
+# optional trailing letter, lowercase suffix words (_beta, _p1, ...) and
+# Gentoo revisions (-r1). Hand-simplified names that drop a commit hash or
+# carry a Gentoo -r bump stay valid; anything portage cannot parse ('+',
+# uppercase, a dot before letters) does not. Used by sync-gentoo to tell
+# "a deliberate, hand-chosen name" from "a rename portage cannot see".
+is_pms_version() {
+	local version="$1"
+	local pattern='^[0-9]+([.][0-9]+)*[a-z]?((_[a-z]+[0-9]*)|(-r[0-9]+))*$'
+	[[ "$version" =~ $pattern ]]
 }
 
 gentoo_arch_keyword() {
