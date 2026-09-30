@@ -81,8 +81,13 @@ scan_target=/var/db/repos/omarchy
 [[ $mode == scope ]] && scan_target="/var/db/repos/omarchy/$target"
 
 echo "== pkgcheck $( [[ $mode == scope ]] && echo "on $target" || echo "on the overlay" ) + full resolve loop =="
+# The overlay mounts read-only like the host tree: a writable mount lets the
+# container's portage write a root-owned metadata/md5-cache into the checkout,
+# and the stale hashes then mask new or edited ebuilds as "corruption" on the
+# next run (the same failure class the smoke workflow's "Reset workspace" step
+# guards against).
 docker run --rm \
-  -v "$BUILD_ROOT/gentoo:/var/db/repos/omarchy" \
+  -v "$BUILD_ROOT/gentoo:/var/db/repos/omarchy:ro" \
   -v "$BUILD_ROOT/bin/gentoo-resolve:/usr/local/bin/gentoo-resolve:ro" \
   -v "$HOST_TREE:$HOST_TREE:ro" \
   "$IMAGE" bash -c '
