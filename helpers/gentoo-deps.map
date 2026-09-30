@@ -11,6 +11,7 @@
 # Keep entries sorted by Arch name. A versioned Arch dependency ("nodejs>=22")
 # must either get its own literal entry here or it falls through to MANUAL.
 
+7zip				app-arch/p7zip
 alsa-lib				media-libs/alsa-lib
 alsa-utils				media-sound/alsa-utils
 apache-utilities		DROP

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="project">
+		<email>hello@omarchy.org</email>
+		<name>Omarchy</name>
+	</maintainer>
+	<longdescription>
+		Open-source control plane for coding agents. The upstream AppImage is
+		unpacked at build time; the Electron tree and the bundled `t3` server
+		CLI are installed under /usr/lib/t3code with launcher wrappers.
+	</longdescription>
+	<upstream>
+		<remote-id type="github">pingdotgg/t3code</remote-id>
+	</upstream>
+</pkgmetadata>

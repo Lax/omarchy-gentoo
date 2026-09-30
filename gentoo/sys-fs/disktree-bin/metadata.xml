@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="project">
+		<email>hello@omarchy.org</email>
+		<name>Omarchy</name>
+	</maintainer>
+	<longdescription>
+		Disk space treemap for Omarchy: see what fills a disk by kind, mark
+		what should go, and remove it. Installed from upstream's prebuilt
+		release tarballs.
+	</longdescription>
+	<upstream>
+		<remote-id type="github">tobi/disktree</remote-id>
+	</upstream>
+</pkgmetadata>

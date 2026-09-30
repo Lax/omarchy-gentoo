@@ -15,8 +15,10 @@ bambustudio-bin	media-gfx	bambustudio-bin
 bun-bin	dev-util	bun-bin
 claude-code	app-misc	claude-code
 crush-bin	dev-util	crush-bin
+cua-driver-bin	app-misc	cua-driver-bin
 cursor-bin	dev-util	cursor-bin
 dbxcli-bin	net-misc	dbxcli-bin
+disktree-bin	sys-fs	disktree-bin
 dropbox	net-misc	dropbox
 elephant	gui-apps	elephant
 # elephant-* are many-to-one: one merged ebuild ships the daemon
@@ -68,8 +70,10 @@ retroarch-joypad-autoconfig-git	games-emulation	retroarch-joypad-autoconfig
 schist-bin	media-gfx	schist-bin
 slap-notes-bin	app-misc	slap-notes-bin
 sublime-text-4	app-editors	sublime-text
+t3code-bin	dev-util	t3code-bin
 tobi-try	dev-util	try
 tensaku	gui-apps	tensaku
+tmog-bin	sys-process	tmog-bin
 ttf-ia-writer	media-fonts	ia-writer
 ttf-jetbrains-mono-nerd-basic	media-fonts	jetbrains-mono-nerd-basic
 ttfx	app-misc	ttfx

@@ -13,5 +13,6 @@ python-sounddevice	in-gentoo	Gentoo ships dev-python/python-sounddevice
 omarchy-keyring	arch-only	pacman keyring payload; meaningless under Portage
 linux-firmware-cirrus	arch-only	repackage of an Arch channel package (archive.archlinux.org payload)
 xpadneo-dkms	wave3	kernel module; DKMS wave
+voxtype-bin	wave3	ALPM post-install probes the host (CPU flags, CUDA soname) and rewrites /usr/bin/voxtype dispatch; needs a runtime-dispatch redesign over a 40-asset multi-variant layout
 omarchy-nvim	blocked	builds a networked nvim plugin tree at install time; needs an offline redesign
 spotify	blocked	no Gentoo provider ships libcurl-gnutls.so.4; needs a dedicated compat package

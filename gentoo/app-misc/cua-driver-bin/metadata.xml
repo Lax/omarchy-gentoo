@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="project">
+		<email>hello@omarchy.org</email>
+		<name>Omarchy</name>
+	</maintainer>
+	<longdescription>
+		Computer-use driver for native GUI apps: accessibility-tree snapshots
+		and input injection. The vendor tree is installed under
+		/usr/lib/cua-driver with the binary's self-updater redirected to a
+		stand-in that defers to the package manager. Version held by hand at
+		0.28.2 until screenshots are fixed upstream.
+	</longdescription>
+	<upstream>
+		<remote-id type="github">trycua/cua</remote-id>
+	</upstream>
+</pkgmetadata>

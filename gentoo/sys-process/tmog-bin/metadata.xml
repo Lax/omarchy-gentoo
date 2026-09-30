@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="project">
+		<email>hello@omarchy.org</email>
+		<name>Omarchy</name>
+	</maintainer>
+	<longdescription>
+		Native system monitor and task manager, re-packaged from the vendor's
+		Qt-linked release tarball (against the system Qt, not the bundled-Qt
+		AppImage). Proprietary: no source is published.
+	</longdescription>
+	<upstream>
+		<doc>https://tmog.org/</doc>
+	</upstream>
+</pkgmetadata>
