@@ -1,7 +1,7 @@
 # arch-pkgver: 8.12.40_23.BETA
 # Ported from pkgbuilds/1password-beta; twin of app-admin/1password on the
-# beta channel. Arch's pkgver "8.12.38_25.BETA" is not a PMS version string;
-# the ebuild filename uses 8.12.38.25_beta while the marker keeps upstream's
+# beta channel. Arch's pkgver "8.12.40_23.BETA" is not a PMS version string;
+# the ebuild filename uses 8.12.40.23_beta while the marker keeps upstream's
 # exact version for the drift checker.
 EAPI=8
 
@@ -9,7 +9,7 @@ inherit desktop
 
 DESCRIPTION="Password manager and secure wallet"
 HOMEPAGE="https://1password.com"
-_tarver="8.12.38-25.BETA"
+_tarver="8.12.40-23.BETA"
 SRC_URI="
 	amd64? ( https://downloads.1password.com/linux/tar/beta/x86_64/1password-${_tarver}.x64.tar.gz -> ${P}-x64.tar.gz )
 	arm64? ( https://downloads.1password.com/linux/tar/beta/aarch64/1password-${_tarver}.arm64.tar.gz -> ${P}-arm64.tar.gz )

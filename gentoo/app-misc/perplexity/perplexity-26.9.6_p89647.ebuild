@@ -3,12 +3,11 @@
 # Gentoo version string; it maps to the _p suffix here. The pool URL needs %2B
 # for '+'.
 #
-# The pool is rolling and 403s superseded builds, so the pin tracks the pool
-# index, not the submodule's pkgver: fetched 26.9.5+build84210 from
-# dists/stable on 2026-09-24 because the pinned 26.9.4+build72244 debs no
-# longer exist. The marker above deliberately keeps the submodule pin so
-# sync-gentoo --check stays quiet; reconcile marker, filename and checksums
-# at the next upstream bump.
+# The pool is rolling and 403s superseded builds, so every bump must confirm
+# the new debs exist in the pool before trusting the pin (in 2026-09 the
+# 26.9.4+build72244 debs vanished and the pin temporarily tracked the
+# dists/stable index instead of the pkgver). Reconciled back to the upstream
+# pkgver at 26.9.6+build89647.
 EAPI=8
 
 inherit desktop
@@ -16,7 +15,7 @@ inherit desktop
 DESCRIPTION="Official Perplexity desktop app"
 HOMEPAGE="https://www.perplexity.ai"
 _pool="https://packages.perplexity.ai/deb/pool/main/p/perplexity"
-_build="26.9.5%2Bbuild84210"
+_build="26.9.6%2Bbuild89647"
 SRC_URI="
 	amd64? ( ${_pool}/perplexity_${_build}_amd64.deb -> ${P}.deb )
 	arm64? ( ${_pool}/perplexity_${_build}_arm64.deb -> ${P}.deb )
@@ -90,10 +89,15 @@ src_install() {
 	# pacman never runs the deb's postinst, so the /usr/bin entry is our
 	# launcher; the menu entry goes through it so a flags file applies too.
 	rm -f usr/bin/perplexity || die
-	newbin "${FILESDIR}"/perplexity-launcher.sh perplexity
 	sed -i 's|^Exec=.*|Exec=perplexity %U|' \
 		usr/share/applications/perplexity.desktop || die
-	domenu usr/share/applications/perplexity.desktop
+	# Debian package-policy files are not used on Gentoo.
+	rm -rf usr/share/doc || die
+
+	# The payload itself: cp before any helper creates ${ED}/usr, or cp would
+	# nest usr/ inside it.
+	cp -a opt usr "${ED}"/ || die
+	newbin "${FILESDIR}"/perplexity-launcher.sh perplexity
 
 	# Chromium's sandbox helper ships setuid on Arch (postinst does it for the
 	# deb); keep the sandbox up on kernels that deny unprivileged namespaces.
@@ -101,8 +105,6 @@ src_install() {
 	# The profile the deb's postinst would install; it names /opt/Perplexity.
 	insinto /etc/apparmor.d
 	doins opt/Perplexity/resources/apparmor-profile
-	# Debian package-policy files are not used on Gentoo.
-	rm -rf usr/share/doc || die
 }
 
 pkg_postinst() {
