@@ -40,6 +40,17 @@ BDEPEND="
 # sysusers.d/omarchy-cups-browsed.conf (creates a user for cups we don't ship)
 # and tmpfiles.d/omarchy-zswap.conf (disables zswap, which only makes sense
 # with the always-zram Arch kernel).
+#
+# At the next OMARCHY_TAG bump, re-review this allowlist: omacom/omarchy#13362
+# moves the mkinitcpio HOOKS baseline into
+# etc/mkinitcpio.conf.d/00-omarchy-hooks.conf, and a brightness-keyboard-auto
+# user unit is coming the same way — the recipe already installs both
+# conditionally on the source carrying them, so they surface here first.
+# (Upstream's 4.0.4 pkgrel 2-4 churn is aarch64-only packaging behind the
+# unchanged source pin; nothing there is load-bearing on amd64.) If this
+# package is ever keyworded ~arm64, that churn becomes this ebuild's work
+# order: the asahi-hook guard and the kept Limine/mkinitcpio drop-ins must be
+# ported alongside re-deciding the "Arch-specific" filters above.
 OMARCHY_ETC_KEEP=(
 	NetworkManager/conf.d/omarchy-wifi-powersave.conf
 	docker/daemon.json
