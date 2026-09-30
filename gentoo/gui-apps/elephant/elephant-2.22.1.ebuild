@@ -12,6 +12,13 @@ HOMEPAGE="https://github.com/abenz1267/elephant"
 # dozen elephant-* pacman packages for partial upgrades; a source overlay
 # rebuilds everything together, so one ebuild ships the daemon and every
 # provider plugin from the same pinned source.
+#
+# The deps tarball is hand-maintained in the mirror's distfiles release
+# (github.com/Lax/omarchy-overlay/releases/tag/distfiles) and must be
+# regenerated at every bump, or the mirror's Manifest build fails: unpack
+# the source, `GOMODCACHE=<tmp>/go-mod go mod download` (plain download —
+# `download all` triples the size), then tar the go-mod/ tree as
+# ${P}-deps.tar.xz and `gh release upload` it to that release.
 SRC_URI="https://github.com/abenz1267/elephant/archive/refs/tags/v${PV}.tar.gz -> ${P}.tar.gz
 	https://github.com/Lax/omarchy-overlay/releases/download/distfiles/${P}-deps.tar.xz"
 
