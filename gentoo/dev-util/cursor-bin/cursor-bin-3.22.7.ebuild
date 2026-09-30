@@ -9,8 +9,9 @@ EAPI=8
 
 DESCRIPTION="AI-first coding environment"
 HOMEPAGE="https://www.cursor.com"
-# Upstream's CDN path embeds the release directory commit.
-_COMMIT=8ae78e8eee1e63479c7e0504b664bc0a80c6800f
+# Upstream's CDN path embeds the release directory commit; it rotates with
+# the production channel, so it is re-read from the PKGBUILD at every bump.
+_COMMIT=37076c6c3f9e253c0fa2305197e45befd13a2268
 SRC_URI="https://downloads.cursor.com/production/${_COMMIT}/linux/x64/deb/amd64/deb/cursor_${PV}_amd64.deb -> ${P}.deb"
 
 S="${WORKDIR}"
