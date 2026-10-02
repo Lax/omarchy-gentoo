@@ -76,7 +76,11 @@ sync_one() {
 	local dir="$GENTOO_ROOT/$category/$gname"
 
 	if [[ ! -d "$pkgdir" ]]; then
-		echo "skip  $package: not present in the upstream submodule"
+		# A status note, not a work order: the overlay deliberately keeps
+		# hand-maintained ebuilds (gum, elsewhen) whose upstream recipes are
+		# gone. The upstream-sync automation files an issue on skip/FAIL
+		# lines, so this must stay a note.
+		echo "note  $package: not present in the upstream submodule"
 		return 0
 	fi
 	local ebuilds=("$dir"/"$gname"-*.ebuild)

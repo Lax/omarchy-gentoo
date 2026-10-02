@@ -87,8 +87,10 @@ bin/sync-gentoo --check     # report-only; exit 1 on drift
 bin/sync-gentoo             # apply what it can mechanically
 ```
 
-Exit 0 with a `skip gum: ...` line is a known-harmless note (gum has an
-ebuild but no upstream recipe; leave it).
+Exit 0 with a `note gum: ...` line is a known-harmless status note (gum has
+an ebuild but no upstream recipe; leave it). `skip` lines, by contrast, are
+work orders — the upstream-sync automation files an issue when it sees one
+(which is why that line is a note).
 
 ## Step 4 — Classify new packages
 
