@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="project">
+		<email>hello@omarchy.org</email>
+		<name>Omarchy</name>
+	</maintainer>
+	<longdescription>
+		Brave web browser, binary release rewrapped from upstream's zip
+		payload into /opt with a flags-file launcher.
+	</longdescription>
+	<upstream>
+		<remote-id type="github">brave/brave-browser</remote-id>
+	</upstream>
+</pkgmetadata>

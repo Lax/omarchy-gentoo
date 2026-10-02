@@ -81,3 +81,7 @@ typora	app-editors	typora
 ufw-docker	net-firewall	ufw-docker
 visual-studio-code-bin	dev-util	visual-studio-code-bin
 xdg-terminal-exec	x11-misc	xdg-terminal-exec
+brave-bin	www-client	brave-bin
+brave-origin-bin	www-client	brave-origin-bin
+microsoft-edge-stable-bin	www-client	microsoft-edge-stable-bin
+zen-browser-bin	www-client	zen-browser-bin

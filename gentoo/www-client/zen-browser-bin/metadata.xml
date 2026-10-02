@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="project">
+		<email>hello@omarchy.org</email>
+		<name>Omarchy</name>
+	</maintainer>
+	<longdescription>
+		Zen, a privacy-focused Firefox-based browser, binary release
+		rewrapped into /opt with system hunspell/nss bindings and a
+		policies.json that disables the self-updater.
+	</longdescription>
+	<upstream>
+		<remote-id type="github">zen-browser/desktop</remote-id>
+	</upstream>
+</pkgmetadata>

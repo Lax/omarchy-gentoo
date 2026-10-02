@@ -16,3 +16,4 @@ xpadneo-dkms	wave3	kernel module; DKMS wave
 voxtype-bin	wave3	ALPM post-install probes the host (CPU flags, CUDA soname) and rewrites /usr/bin/voxtype dispatch; needs a runtime-dispatch redesign over a 40-asset multi-variant layout
 omarchy-nvim	blocked	builds a networked nvim plugin tree at install time; needs an offline redesign
 spotify	blocked	no Gentoo provider ships libcurl-gnutls.so.4; needs a dedicated compat package
+learn-omarchy	blocked	hard-depends on gpu-screen-recorder, which ::gentoo does not package (GURU only); re-port when a provider lands

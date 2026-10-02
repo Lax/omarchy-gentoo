@@ -26,6 +26,7 @@ chromium				www-client/chromium
 click					dev-python/click
 coreutils				DROP
 dbus				sys-apps/dbus
+dbus-glib			dev-libs/dbus-glib
 desktop-file-utils		dev-util/desktop-file-utils
 curl					net-misc/curl
 docker					app-containers/docker
@@ -109,11 +110,14 @@ libxmu				x11-libs/libXmu
 libxrandr				x11-libs/libXrandr
 libxrender				x11-libs/libXrender
 libxslt				dev-libs/libxslt
+libxt				x11-libs/libXt
+libxml2				dev-libs/libxml2
 libxss					x11-libs/libXScrnSaver
 libxtst				x11-libs/libXtst
 libxxf86vm				x11-libs/libXxf86vm
 libzip					dev-libs/libzip
 lsof				sys-process/lsof
+mime-types			x11-misc/shared-mime-info
 lsp-plugins-lv2			media-libs/lsp-plugins
 mesa					media-libs/mesa
 mise					MANUAL:not in this tree; available in GURU (shipped packages note it in pkg_postinst)
@@ -153,6 +157,7 @@ starship				app-shells/starship
 sudo					app-admin/sudo
 systemd					sys-apps/systemd
 systemd-libs				sys-apps/systemd
+ttf-font				media-fonts/liberation-fonts
 ttf-jetbrains-mono-nerd-basic	media-fonts/jetbrains-mono-nerd-basic
 ttf-liberation			media-fonts/liberation-fonts
 ufw						net-firewall/ufw
@@ -173,4 +178,4 @@ zlib					sys-libs/zlib
 zoxide					app-shells/zoxide
 zsh						app-shells/zsh
 zsh-syntax-highlighting	app-shells/zsh-syntax-highlighting
-omarchy					app-misc/omarchy
+omarchy					omarchy/omarchy
