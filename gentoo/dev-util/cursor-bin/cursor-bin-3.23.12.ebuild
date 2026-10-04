@@ -1,4 +1,4 @@
-# arch-pkgver: 3.22.7
+# arch-pkgver: 3.23.12
 # Ported from pkgbuilds/cursor-bin. Arch points Cursor at the system
 # electron42 package; Gentoo has no matching electron, so this ebuild keeps
 # the .deb's bundled electron and its own launcher instead of rewriting

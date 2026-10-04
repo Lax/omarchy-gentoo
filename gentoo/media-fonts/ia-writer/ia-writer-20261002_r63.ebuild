@@ -1,4 +1,4 @@
-# arch-pkgver: 20230616.r62
+# arch-pkgver: 20261002.r63
 # Ported from pkgbuilds/ttf-ia-writer. Sources are individual TTFs pinned to
 # two upstream commits: current iA-Fonts, plus the retired Duospace family at
 # the last commit that shipped it.

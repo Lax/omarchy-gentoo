@@ -1,4 +1,4 @@
-# arch-pkgver: 2.39.0
+# arch-pkgver: 2.40.0
 # Ported from pkgbuilds/1password-cli. Upstream ships a PGP signature inside
 # the zip; on Gentoo the Manifest covers the archive's integrity.
 EAPI=8

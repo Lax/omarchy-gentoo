@@ -1,4 +1,4 @@
-# arch-pkgver: 8.12.40_23.BETA
+# arch-pkgver: 8.12.40_27.BETA
 # Ported from pkgbuilds/1password-beta; twin of app-admin/1password on the
 # beta channel. Arch's pkgver "8.12.40_23.BETA" is not a PMS version string;
 # the ebuild filename uses 8.12.40.23_beta while the marker keeps upstream's
