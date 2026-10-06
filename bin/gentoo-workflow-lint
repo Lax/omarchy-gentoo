@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# Lint the docker scripts in .github/workflows/gentoo.yml. Every stage3
+# step drives its work through a single-quoted `bash -c '...'` argument,
+# so a single apostrophe anywhere in those scripts (a comment saying
+# "Portage's" is enough) closes the quote early and the runner host
+# executes the rest of the script itself - see the 2026-10-06 mirror
+# failure. Two rules per extracted body: no apostrophes, and the body
+# parses as bash.
+set -euo pipefail
+
+die() { echo "gentoo-workflow-lint: $*" >&2; exit 1; }
+
+# The extraction runs through python3 for the multi-line regex work; the
+# workflow file is plain text to it (no yaml module needed).
+check_file() {
+	python3 - "$1" <<'PY'
+import re, subprocess, sys, tempfile
+
+path = sys.argv[1]
+raw = open(path).read()
+bodies = []
+for m in re.finditer(r"bash -c '\n", raw):
+    start = m.end()
+    end = re.search(r"\n *'\n", raw[start:])
+    if not end:
+        sys.exit(f"{path}: unterminated bash -c body")
+    bodies.append((start, raw[start:start + end.start()]))
+if not bodies:
+    sys.exit(f"{path}: found no bash -c bodies; did the layout change?")
+for n, (offset, body) in enumerate(bodies, 1):
+    line_no = raw[:offset].count("\n") + 1
+    for i, line in enumerate(body.splitlines(), 1):
+        if "'" in line:
+            sys.exit(f"{path}: docker script starting at line {line_no}: "
+                     f"apostrophe on its line {i} breaks the quoting: "
+                     f"{line.strip()[:60]}")
+    with tempfile.NamedTemporaryFile("w", suffix=".sh") as f:
+        f.write(body)
+        f.flush()
+        r = subprocess.run(["bash", "-n", f.name], capture_output=True, text=True)
+    if r.returncode != 0:
+        sys.exit(f"{path}: docker script starting at line {line_no} "
+                 f"does not parse: {r.stderr.strip()[:120]}")
+print(f"{path}: {len(bodies)} docker bash -c bodies, apostrophe-free and bash-clean")
+PY
+}
+
+self_test() {
+	# The subshell scopes the tmp cleanup trap: at script exit $tmp would
+	# already be out of scope and set -u would turn the trap into a failure.
+	(
+		tmp=$(mktemp -d)
+		trap 'rm -rf "$tmp"' EXIT
+	# A body with an apostrophe must be rejected...
+          cat > "$tmp/bad.yml" <<'EOF'
+jobs:
+  x:
+    steps:
+      - run: |
+          docker run --rm img bash -c '
+            set -eu
+            # Portage's parser is strict.
+            echo ok
+          '
+EOF
+	if check_file "$tmp/bad.yml" >/dev/null 2>&1; then
+		die "self-test: an apostrophe body was accepted"
+	fi
+	# ...and a clean body must pass.
+	cat > "$tmp/good.yml" <<'EOF'
+jobs:
+  x:
+    steps:
+      - run: |
+          docker run --rm img bash -c '
+            set -eu
+            echo ok
+          '
+EOF
+	check_file "$tmp/good.yml" >/dev/null
+	echo "self-test ok"
+	)
+}
+
+case "${1:-}" in
+--self-test) self_test ;;
+"") check_file .github/workflows/gentoo.yml ;;
+*) die "usage: gentoo-workflow-lint [--self-test]" ;;
+esac

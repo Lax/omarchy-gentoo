@@ -16,7 +16,9 @@ on:
       - bin/ai-port
       - bin/gentoo-resolve
       - bin/sync-gentoo
+      - bin/gentoo-workflow-lint
       - .github/workflows/gentoo-tooling.yml
+      - .github/workflows/gentoo.yml
   push:
     branches: [master]
     paths:
@@ -27,7 +29,9 @@ on:
       - bin/ai-port
       - bin/gentoo-resolve
       - bin/sync-gentoo
+      - bin/gentoo-workflow-lint
       - .github/workflows/gentoo-tooling.yml
+      - .github/workflows/gentoo.yml
   workflow_dispatch:
 
 permissions:
@@ -85,3 +89,9 @@ jobs:
                 ;;
             esac
           done
+
+      - name: gentoo.yml docker scripts are quote-safe
+        run: |
+          set -euo pipefail
+          bin/gentoo-workflow-lint --self-test
+          bin/gentoo-workflow-lint
