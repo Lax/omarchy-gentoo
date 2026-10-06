@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="project">
+		<email>hello@omarchy.org</email>
+		<name>Omarchy</name>
+	</maintainer>
+	<longdescription>
+		Nightly channel of T3 Code, unpacked from upstream's AppImage into
+		/usr/lib/t3code-nightly so it installs alongside dev-util/t3code-bin.
+	</longdescription>
+	<upstream>
+		<remote-id type="github">pingdotgg/t3code</remote-id>
+	</upstream>
+</pkgmetadata>
