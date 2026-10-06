@@ -275,10 +275,29 @@ cmd_self_test() {
   check "row: cursor-bin" $'dev-util\tcursor-bin' "$(gentoo_row cursor-bin)"
   check "queue: omarchy-keyring not open" "0" \
     "$(cmd_list_open | grep -c 'omarchy-keyring.*OPEN' || true)"
-  # Can't anchor to one package name: whatever is named here gets ported and
-  # breaks the canary. Assert the queue still lists unported bin packages.
-  check "queue: unported bin pkg listed" "1" \
-    "$(cmd_list_open | awk '$3 == "OPEN" && $1 == "bin" {c++} END {print (c>0)?1:0}')"
+  # The live queue may legitimately drain to empty once every package is
+  # ported or dispositioned - that must not read as a scanner regression.
+  # So OPEN detection gets a fixture-based positive control: a canary bin
+  # package that is neither ported nor skipped must list OPEN, and a
+  # fixture-skipped sibling must not.
+  local qtmp
+  qtmp=$(mktemp -d)
+  mkdir -p "$qtmp/pkgbuilds/zz-canary-bin" "$qtmp/pkgbuilds/zz-canary-skip"
+  printf 'pkgname=zz-canary-bin\narch=("x86_64" "aarch64")\n' \
+    > "$qtmp/pkgbuilds/zz-canary-bin/PKGBUILD"
+  printf 'pkgname=zz-canary-skip\narch=("x86_64" "aarch64")\n' \
+    > "$qtmp/pkgbuilds/zz-canary-skip/PKGBUILD"
+  : > "$qtmp/packages.tsv"
+  printf 'zz-canary-skip\tblocked\tfixture row\n' > "$qtmp/skip.tsv"
+  check "queue: fixture open bin listed" "zz-canary-bin" \
+    "$(PKGBUILDS_DIR="$qtmp/pkgbuilds" PACKAGES_TSV="$qtmp/packages.tsv" \
+      SKIP_TSV="$qtmp/skip.tsv" \
+      cmd_list_open | awk '$3 == "OPEN" { print $2 }')"
+  check "queue: fixture skip not open" "0" \
+    "$(PKGBUILDS_DIR="$qtmp/pkgbuilds" PACKAGES_TSV="$qtmp/packages.tsv" \
+      SKIP_TSV="$qtmp/skip.tsv" \
+      cmd_list_open | grep -c 'zz-canary-skip.*OPEN' || true)"
+  rm -rf "$qtmp"
   check "queue: ported omazed not open" "0" \
     "$(cmd_list_open | awk '$3 == "OPEN" && $2 == "omazed"' | grep -c omazed || true)"
   local brief

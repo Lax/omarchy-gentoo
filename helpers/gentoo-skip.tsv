@@ -17,3 +17,4 @@ voxtype-bin	wave3	ALPM post-install probes the host (CPU flags, CUDA soname) and
 omarchy-nvim	blocked	builds a networked nvim plugin tree at install time; needs an offline redesign
 spotify	blocked	no Gentoo provider ships libcurl-gnutls.so.4; needs a dedicated compat package
 learn-omarchy	blocked	hard-depends on gpu-screen-recorder, which ::gentoo does not package (GURU only); re-port when a provider lands
+dotnet-core-bin	in-gentoo	::gentoo ships dev-dotnet/dotnet-sdk-bin covering the six-way split payload (keywordless - needs package.accept_keywords); consumers should depend on virtual/dotnet-sdk, as the omarchy metapackage already does

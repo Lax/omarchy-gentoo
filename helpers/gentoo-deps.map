@@ -120,7 +120,7 @@ lsof				sys-process/lsof
 mime-types			x11-misc/shared-mime-info
 lsp-plugins-lv2			media-libs/lsp-plugins
 mesa					media-libs/mesa
-mise					MANUAL:not in this tree; available in GURU (shipped packages note it in pkg_postinst)
+mise					dev-util/mise-bin
 more-itertools			dev-python/more-itertools
 mpv						media-video/mpv
 neovim					app-editors/neovim
