@@ -276,7 +276,7 @@ cmd_self_test() {
   check "version: epoch dropped" "1.2.3" "$(gentoo_version "1:1.2.3")"
   check "version: r-suffix folded" "1.22.1_p200" "$(gentoo_version "1.22.1.p200")"
   check "version: hyphen folded" "0.1_beta" "$(gentoo_version "0.1-beta")"
-  check "version: nightly date+serial folded" "0.0.46_p20261004-r2644" \
+  check "version: nightly date+serial folded" "0.0.46_p20261004_p2644" \
     "$(gentoo_version "0.0.46_nightly.20261004.2644")"
   check "version: nightly fold is PMS-parseable" "yes" \
     "$(is_pms_version "$(gentoo_version "0.0.46_nightly.20261004.2644")" && echo yes || echo no)"

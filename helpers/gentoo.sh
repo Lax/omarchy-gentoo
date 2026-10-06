@@ -110,10 +110,10 @@ gentoo_location() {
 # renamed ia-writer to an unparseable name this way) and a trailing commit
 # hash component (".g9aec589") is dropped - it orders nothing and the marker
 # keeps the raw version. The rotating-nightly marker "_nightly.DATE.SERIAL"
-# puts the date in a _p suffix and the day's serial in a revision so ordering
-# survives the fold ("0.0.46_nightly.20261004.2644" -> "0.0.46_p20261004-r2644").
-# That fold runs after the sanitizer above because it introduces the '-' the
-# sanitizer would otherwise fold. An underscore directly before digits folds
+# becomes two _p suffixes - the date, then the day's serial - so ordering
+# survives the fold and the Gentoo -rN slot stays free for real revisions
+# ("0.0.46_nightly.20261004.2644" -> "0.0.46_p20261004_p2644"). An underscore
+# directly before digits folds
 # to a dot ("_23" is not a suffix word; 1password's "8.12.40_23.BETA" ->
 # "8.12.40.23_beta") and any remaining characters Gentoo cannot parse become
 # _. pkgrel never applies to ebuilds.
@@ -127,7 +127,7 @@ gentoo_version() {
 		sed -E 's/\+[A-Za-z]*([0-9]+)/_p\1/g' |
 		sed -E 's/_([0-9]+)/.\1/g' |
 		tr -c 'a-z0-9._\n' '_' |
-		sed -E 's/_nightly\.([0-9]+)\.([0-9]+)/_p\1-r\2/g' |
+		sed -E 's/_nightly\.([0-9]+)\.([0-9]+)/_p\1_p\2/g' |
 		tr -d '\n'
 }
 

@@ -13,11 +13,11 @@ inherit desktop
 DESCRIPTION="Open-source control plane for coding agents (nightly)"
 HOMEPAGE="https://t3.codes"
 # The release tag spells the version "N.N.N-nightly.DATE.SERIAL"; PV's PMS
-# fold ("_pDATE-rSERIAL") is reversed here with parameter expansion only, so
+# fold ("_pDATE_pSERIAL") is reversed here with parameter expansion only, so
 # the automation's renames keep the SRC_URI in lockstep instead of
 # hand-carrying a version every nightly would silently strand.
-_upstream_version="${PV%-r*}"
-_upstream_version="${_upstream_version%_p*}-nightly.${_upstream_version##*_p}.${PV##*-r}"
+_upstream_version="${PV%%_p*}-nightly.${PV#*_p}"
+_upstream_version="${_upstream_version/_p/.}"
 SRC_URI="
 	amd64? ( https://github.com/pingdotgg/t3code/releases/download/v${_upstream_version}/T3-Code-${_upstream_version}-x86_64.AppImage
 		-> ${P}-x86_64.AppImage )
