@@ -276,6 +276,20 @@ cmd_self_test() {
   check "version: epoch dropped" "1.2.3" "$(gentoo_version "1:1.2.3")"
   check "version: r-suffix folded" "1.22.1_p200" "$(gentoo_version "1.22.1.p200")"
   check "version: hyphen folded" "0.1_beta" "$(gentoo_version "0.1-beta")"
+  check "version: nightly date+serial folded" "0.0.46_p20261004-r2644" \
+    "$(gentoo_version "0.0.46_nightly.20261004.2644")"
+  check "version: nightly fold is PMS-parseable" "yes" \
+    "$(is_pms_version "$(gentoo_version "0.0.46_nightly.20261004.2644")" && echo yes || echo no)"
+  check "version: git revision counter folded" "20261002_p63" \
+    "$(gentoo_version "20261002.r63")"
+  check "version: git counter kept, hash dropped" "1.22.1_p200" \
+    "$(gentoo_version "1.22.1.r200.g9aec589")"
+  check "version: rc suffix is not a revision counter" "1.0_rc3" \
+    "$(gentoo_version "1.0.rc3")"
+  check "pms: portage-invalid _r suffix rejected" "1" \
+    "$(is_pms_version "20261002_r63"; echo $?)"
+  check "pms: folded _p suffix accepted" "0" \
+    "$(is_pms_version "20261002_p63"; echo $?)"
   check "arch keyword: x86_64" "amd64" "$(gentoo_arch_keyword x86_64)"
   check "arch keyword: aarch64" "arm64" "$(gentoo_arch_keyword aarch64)"
   check "dep map: hit" "x11-libs/gtk+:3" "$(map_dep "gtk3")"
