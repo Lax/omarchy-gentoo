@@ -143,7 +143,11 @@ jobs:
               # Mirrors and the site proxy feed the distfiles fetches and
               # the github release assets; on a GitHub-hosted runner the
               # defaults are the fast path.
-              echo "MAKEOPTS=\"-j\$(nproc)\"" >> /etc/portage/make.conf
+              # Portage's make.conf parser does not run command substitution:
+              # a literal $(nproc) is a "bad substitution" parse error that
+              # voids the settings around it, so expand nproc here, at write
+              # time.
+              echo "MAKEOPTS=\"-j$(nproc)\"" >> /etc/portage/make.conf
               echo "LLVM_TARGETS=\"X86 AMDGPU\"" >> /etc/portage/make.conf
               echo "FEATURES=\"\${FEATURES} buildpkg ccache\"" >> /etc/portage/make.conf
               echo "CCACHE_DIR=\"/var/cache/ccache\"" >> /etc/portage/make.conf
@@ -152,9 +156,13 @@ jobs:
               # cost the 2026-10-04 and 2026-10-05 nightlies) must retry and
               # fail fast, not strand the run on a stalled connection. wget
               # does not retry TLS-level errors; curl does, and --max-time
-              # bounds a silent stall.
-              echo "FETCHCOMMAND=\"curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 --connect-timeout 30 --max-time 900 -o \\\"\${DISTDIR}/\${FILE}\\\" \\\"\${URI}\\\"\"" >> /etc/portage/make.conf
-              echo "RESUMECOMMAND=\"curl -fsSL -C - --retry 5 --retry-all-errors --retry-delay 10 --connect-timeout 30 --max-time 900 -o \\\"\${DISTDIR}/\${FILE}\\\" \\\"\${URI}\\\"\"" >> /etc/portage/make.conf
+              # bounds a silent stall. The ${DISTDIR}/${FILE}/${URI} tokens
+              # must reach make.conf backslash-escaped: portage's loader eats
+              # a bare ${FILE} during config expansion, long before its fetch
+              # logic substitutes them, which aborted every source download
+              # with "does not contain the required ${FILE} parameter".
+              echo "FETCHCOMMAND=\"curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 --connect-timeout 30 --max-time 900 -o \\\"\\\${DISTDIR}/\\\${FILE}\\\" \\\"\\\${URI}\\\"\"" >> /etc/portage/make.conf
+              echo "RESUMECOMMAND=\"curl -fsSL -C - --retry 5 --retry-all-errors --retry-delay 10 --connect-timeout 30 --max-time 900 -o \\\"\\\${DISTDIR}/\\\${FILE}\\\" \\\"\\\${URI}\\\"\"" >> /etc/portage/make.conf
               if [ "${RUNNER_ENVIRONMENT:-}" = "self-hosted" ]; then
                 echo "GENTOO_MIRRORS=\"https://mirrors.aliyun.com/gentoo/\"" >> /etc/portage/make.conf
                 echo "http_proxy=\"http://127.0.0.1:64540\"" >> /etc/portage/make.conf
@@ -366,7 +374,11 @@ jobs:
               # distfiles, the local proxy for github release assets. The
               # distfiles volume is shared with smoke, so most runs fetch
               # nothing.
-              echo "MAKEOPTS=\"-j\$(nproc)\"" >> /etc/portage/make.conf
+              # Portage's make.conf parser does not run command substitution:
+              # a literal $(nproc) is a "bad substitution" parse error that
+              # voids the settings around it, so expand nproc here, at write
+              # time.
+              echo "MAKEOPTS=\"-j$(nproc)\"" >> /etc/portage/make.conf
               echo "FEATURES=\"\${FEATURES} buildpkg\"" >> /etc/portage/make.conf
               echo "GENTOO_MIRRORS=\"https://mirrors.aliyun.com/gentoo/\"" >> /etc/portage/make.conf
               echo "http_proxy=\"http://127.0.0.1:64540\"" >> /etc/portage/make.conf
