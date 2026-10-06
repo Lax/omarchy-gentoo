@@ -11,7 +11,7 @@ DESCRIPTION="AI-first coding environment"
 HOMEPAGE="https://www.cursor.com"
 # Upstream's CDN path embeds the release directory commit; it rotates with
 # the production channel, so it is re-read from the PKGBUILD at every bump.
-_COMMIT=37076c6c3f9e253c0fa2305197e45befd13a2268
+_COMMIT=2d29876d567da1607532b23bbf2cd5ddbca496fe
 SRC_URI="https://downloads.cursor.com/production/${_COMMIT}/linux/x64/deb/amd64/deb/cursor_${PV}_amd64.deb -> ${P}.deb"
 
 S="${WORKDIR}"
