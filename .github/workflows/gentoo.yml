@@ -147,6 +147,14 @@ jobs:
               echo "LLVM_TARGETS=\"X86 AMDGPU\"" >> /etc/portage/make.conf
               echo "FEATURES=\"\${FEATURES} buildpkg ccache\"" >> /etc/portage/make.conf
               echo "CCACHE_DIR=\"/var/cache/ccache\"" >> /etc/portage/make.conf
+              # Vendor distfiles come straight from their CDNs through the
+              # site proxy; a dropped TLS read there (downloads.1password.com
+              # cost the 2026-10-04 and 2026-10-05 nightlies) must retry and
+              # fail fast, not strand the run on a stalled connection. wget
+              # does not retry TLS-level errors; curl does, and --max-time
+              # bounds a silent stall.
+              echo "FETCHCOMMAND=\"curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 --connect-timeout 30 --max-time 900 -o \\\"\${DISTDIR}/\${FILE}\\\" \\\"\${URI}\\\"\"" >> /etc/portage/make.conf
+              echo "RESUMECOMMAND=\"curl -fsSL -C - --retry 5 --retry-all-errors --retry-delay 10 --connect-timeout 30 --max-time 900 -o \\\"\${DISTDIR}/\${FILE}\\\" \\\"\${URI}\\\"\"" >> /etc/portage/make.conf
               if [ "${RUNNER_ENVIRONMENT:-}" = "self-hosted" ]; then
                 echo "GENTOO_MIRRORS=\"https://mirrors.aliyun.com/gentoo/\"" >> /etc/portage/make.conf
                 echo "http_proxy=\"http://127.0.0.1:64540\"" >> /etc/portage/make.conf
