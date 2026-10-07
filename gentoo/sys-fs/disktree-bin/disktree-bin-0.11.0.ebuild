@@ -1,4 +1,4 @@
-# arch-pkgver: 0.10.1
+# arch-pkgver: 0.11.0
 # Ported from pkgbuilds/disktree-bin.
 EAPI=8
 
