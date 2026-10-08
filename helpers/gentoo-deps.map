@@ -30,6 +30,7 @@ dbus-glib			dev-libs/dbus-glib
 desktop-file-utils		dev-util/desktop-file-utils
 curl					net-misc/curl
 docker					app-containers/docker
+dropbox					net-misc/dropbox
 dvd+rw-tools			app-cdr/dvd+rw-tools
 elephant				gui-apps/elephant
 elephant-all			gui-apps/elephant
@@ -142,6 +143,7 @@ pipewire				media-video/pipewire
 plymouth				sys-boot/plymouth
 python					dev-lang/python
 python-cffi				dev-python/cffi
+python-gobject			dev-python/pygobject
 qt6-base				dev-qt/qtbase:6
 qt6-declarative			dev-qt/qtdeclarative
 qt6-multimedia			dev-qt/qtmultimedia

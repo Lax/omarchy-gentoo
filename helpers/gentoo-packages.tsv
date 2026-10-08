@@ -86,3 +86,4 @@ brave-origin-bin	www-client	brave-origin-bin
 microsoft-edge-stable-bin	www-client	microsoft-edge-stable-bin
 zen-browser-bin	www-client	zen-browser-bin
 t3code-nightly-bin	dev-util	t3code-nightly-bin
+dropbox-cli	net-misc	dropbox-cli
