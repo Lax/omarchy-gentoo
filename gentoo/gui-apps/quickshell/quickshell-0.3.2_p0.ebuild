@@ -1,4 +1,4 @@
-# arch-pkgver: 0.3.0.r20.g28771c7
+# arch-pkgver: 0.3.2.r0.g4f508be
 # Ported from pkgbuilds/quickshell-git. The Arch recipe tracks quickshell's
 # main branch through a git-describe snapshot; that pin becomes the codeload
 # tarball of the same commit, so the content is identical and
