@@ -2,6 +2,8 @@
 # Ported from pkgbuilds/dropbox. Arch generates the desktop entry with
 # gendesk at build time; a static entry ships in FILESDIR here. The tarball's
 # GPG signature is pinned to Dropbox's automatic signing key upstream.
+# Upstream also wires an aarch64 build through box64; that emulator is
+# wave3 here, so this port stays amd64-only until box64 is ported.
 EAPI=8
 
 inherit desktop systemd
