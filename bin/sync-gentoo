@@ -170,6 +170,19 @@ sync_one() {
 	else
 		sed -i "1i $MARKER $current_pv" "$target"
 	fi
+	# Opaque pins: derivation params some ebuilds carry (_COMMIT, _BUILD,
+	# _RELVER) never contain the version string, so the version rewrite
+	# above cannot reach them - cursor-bin 403'd on every CDN rotation
+	# until these were re-read from the PKGBUILD at bump time.
+	local pin src val
+	for pin in _COMMIT:_commit _BUILD:_build _RELVER:_relver; do
+		src=${pin#*:}
+		val=$(package_pkgbuild_var "$pkgdir" "$src" 2>/dev/null || true)
+		[[ -n "$val" ]] || continue
+		if grep -q "^${pin%%:*}=" "$target"; then
+			sed -i "s|^${pin%%:*}=.*|${pin%%:*}=$val|" "$target"
+		fi
+	done
 	if grep -qF -- "$old_pv" "$target"; then
 		echo "bump  $category/$gname: renamed to $new_pv BUT '$old_pv' still appears inside; update pinned URLs by hand"
 	else
@@ -236,10 +249,23 @@ cmd_self_test() {
 	done
 	cp "$UPSTREAM_ROOT/helpers/package-metadata.sh" "$fixture/omarchy-pkgs/helpers/"
 	cp "${BASH_SOURCE[0]}" "$fixture/bin/sync-gentoo"
+	# vercmp is not installed on every host this self-test runs on; without
+	# it the whole vercmp branch below (rename, marker rewrite, opaque-pin
+	# refresh) silently degrades to the refusal path. A sort -V shim keeps
+	# that branch exercised everywhere.
+	cat >"$fixture/bin/vercmp" <<'SH'
+#!/bin/sh
+case "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -n 1)" in
+	"$1") [ "$1" = "$2" ] && echo 0 || echo -1 ;;
+	*) echo 1 ;;
+esac
+SH
+	chmod +x "$fixture/bin/vercmp"
+	PATH="$fixture/bin:$PATH"
 	printf '%s\n' "fixture	app-misc	fixture" >>"$fixture/helpers/gentoo-packages.tsv"
 	printf '%s\n' \
 		"pkgname=fixture" "pkgver=1.0.0" "pkgrel=1" "arch=('any')" \
-		"license=('MIT')" "url='https://example.com'" \
+		"license=('MIT')" "url='https://example.com'" "_commit=aaa111" \
 		>"$fixture/omarchy-pkgs/pkgbuilds/fixture/PKGBUILD"
 
 	local ebuild="$fixture/gentoo/app-misc/fixture/fixture-1.0.0.ebuild"
@@ -247,6 +273,7 @@ cmd_self_test() {
 		"# arch-pkgver: 1.0.0" \
 		"EAPI=8" \
 		'DESCRIPTION="fixture"' \
+		"_COMMIT=aaa111" \
 		"SRC_URI=\"https://example.com/dl/fixture-1.0.0.tar.gz\"" \
 		>"$ebuild"
 	check "marker parsed" "1.0.0" "$(marker_pkgver "$ebuild")"
@@ -260,7 +287,7 @@ cmd_self_test() {
 	# and sync must refuse rather than guess. (rc captured by hand: several of
 	# these commands are EXPECTED to fail, and the self-test runs set -e.)
 	printf '%s\n' "pkgname=fixture" "pkgver=1.1.0" "pkgrel=1" "arch=('any')" \
-		"license=('MIT')" "url='https://example.com'" \
+		"license=('MIT')" "url='https://example.com'" "_commit=bbb222" \
 		>"$fixture/omarchy-pkgs/pkgbuilds/fixture/PKGBUILD"
 	rc=0
 	(cd "$fixture" && ./bin/sync-gentoo --check >/dev/null 2>&1) || rc=$?
@@ -271,6 +298,8 @@ cmd_self_test() {
 		check "ebuild renamed to 1.1.0" "yes" \
 			"$([[ -f "$fixture/gentoo/app-misc/fixture/fixture-1.1.0.ebuild" ]] && echo yes || echo no)"
 		check "marker rewritten" "1.1.0" "$(marker_pkgver "$fixture/gentoo/app-misc/fixture/fixture-1.1.0.ebuild")"
+		check "opaque pin refreshed at bump" "bbb222" \
+			"$(sed -n 's/^_COMMIT=//p' "$fixture/gentoo/app-misc/fixture/fixture-1.1.0.ebuild")"
 		check "stale pin flagged" "1" "$(grep -c 'update pinned URLs by hand' <<<"$bump_out")"
 		(cd "$fixture" && ./bin/sync-gentoo --check >/dev/null 2>&1)
 		check "back in sync exits 0" "0" "$?"

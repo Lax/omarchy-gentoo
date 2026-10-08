@@ -10,8 +10,9 @@ EAPI=8
 DESCRIPTION="AI-first coding environment"
 HOMEPAGE="https://www.cursor.com"
 # Upstream's CDN path embeds the release directory commit; it rotates with
-# the production channel, so it is re-read from the PKGBUILD at every bump.
-_COMMIT=2d29876d567da1607532b23bbf2cd5ddbca496fe
+# the production channel. sync-gentoo re-reads _commit from the PKGBUILD on
+# every bump (the 3.23.12-era rotation served 403s until that existed).
+_COMMIT=2dac2428994fe34f12658d9ecad1541b98db2c04
 SRC_URI="https://downloads.cursor.com/production/${_COMMIT}/linux/x64/deb/amd64/deb/cursor_${PV}_amd64.deb -> ${P}.deb"
 
 S="${WORKDIR}"
