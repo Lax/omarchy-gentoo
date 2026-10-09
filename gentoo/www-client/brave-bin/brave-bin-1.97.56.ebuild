@@ -1,25 +1,27 @@
-# arch-pkgver: 1.96.61
+# arch-pkgver: 1.97.56
 # Copyright 2026, omarchy-gentoo overlay team
 # Distributed under the terms of the MIT license
 
-# Ported from pkgbuilds/brave-origin-bin. Upstream carries epoch=1, which
-# has no Gentoo equivalent for a fresh package - the epoch is dropped here.
+# Ported from pkgbuilds/brave-bin. Upstream carries epoch=1, which has no
+# Gentoo equivalent for a fresh package - the epoch is dropped here.
 EAPI=8
 
 inherit desktop
 
-DESCRIPTION="The minimalist browser from the makers of Brave (binary release)"
-HOMEPAGE="https://brave.com/origin/download"
+DESCRIPTION="Web browser that blocks ads and trackers by default (binary release)"
+HOMEPAGE="https://brave.com"
 SRC_URI="
-	amd64? ( https://github.com/brave/brave-browser/releases/download/v${PV}/brave-origin-${PV}-linux-amd64.zip
+	amd64? ( https://github.com/brave/brave-browser/releases/download/v${PV}/brave-browser-${PV}-linux-amd64.zip
 		-> ${P}-amd64.zip )
-	arm64? ( https://github.com/brave/brave-browser/releases/download/v${PV}/brave-origin-${PV}-linux-arm64.zip
+	arm64? ( https://github.com/brave/brave-browser/releases/download/v${PV}/brave-browser-${PV}-linux-arm64.zip
 		-> ${P}-arm64.zip )
 "
 
 S="${WORKDIR}"
 
-LICENSE="MPL-2.0"
+# The bundled LICENSE covers the MPL-2.0 browser code and the BSD-licensed
+# components; the recipe's custom:chromium clause rides along inside it.
+LICENSE="MPL-2.0 BSD"
 SLOT="0"
 KEYWORDS="~amd64 ~arm64"
 
@@ -48,8 +50,8 @@ src_install() {
 	# Allow firejail users to get the suid sandbox working.
 	fperms 4755 /opt/${PN}/chrome-sandbox
 
-	newbin "${FILESDIR}"/brave-origin-bin.sh brave-origin
-	domenu "${FILESDIR}"/brave-origin.desktop
+	newbin "${FILESDIR}"/brave-bin.sh brave
+	domenu "${FILESDIR}"/brave-browser.desktop
 
 	insinto /usr/share/licenses/${PN}
 	doins LICENSE
@@ -65,5 +67,5 @@ pkg_postinst() {
 	elog "Optional printer support: net-print/cups"
 	elog "Optional native notifications: x11-libs/libnotify"
 	elog "Optional GNOME keyring support: gnome-base/gnome-keyring"
-	elog "User flags file: ~/.config/brave-origin-flags.conf (one flag per line)"
+	elog "User flags file: ~/.config/brave-flags.conf (one flag per line)"
 }

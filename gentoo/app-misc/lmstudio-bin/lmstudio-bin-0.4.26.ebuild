@@ -1,4 +1,4 @@
-# arch-pkgver: 0.4.25
+# arch-pkgver: 0.4.26
 # Ported from pkgbuilds/lmstudio-bin. The AppImage is installed as-is; it
 # self-extracts on first run (fuse2 at runtime or --appimage-extract-and-run).
 EAPI=8
@@ -7,7 +7,7 @@ inherit desktop xdg
 
 DESCRIPTION="Desktop app for exploring and running large language models locally"
 HOMEPAGE="https://lmstudio.ai"
-_BUILD=1
+_BUILD=4
 SRC_URI="https://installers.lmstudio.ai/linux/x64/${PV}-${_BUILD}/LM-Studio-${PV}-${_BUILD}-x64.AppImage -> ${P}.AppImage"
 
 S="${WORKDIR}"
