@@ -1,4 +1,4 @@
-# arch-pkgver: 0.28.2
+# arch-pkgver: 0.33.4
 # Ported from pkgbuilds/cua-driver-bin. Held at 0.28.2 by hand upstream:
 # 0.28.3 and newer break screenshots; bump only once a fixed release is
 # verified.
