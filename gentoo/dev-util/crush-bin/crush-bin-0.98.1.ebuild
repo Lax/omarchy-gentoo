@@ -1,4 +1,4 @@
-# arch-pkgver: 0.97.1
+# arch-pkgver: 0.98.1
 # Ported from pkgbuilds/crush-bin.
 EAPI=8
 

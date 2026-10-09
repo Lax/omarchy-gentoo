@@ -1,4 +1,4 @@
-# arch-pkgver: 0.3.3
+# arch-pkgver: 0.3.4
 # Ported from pkgbuilds/once-bin.
 EAPI=8
 
