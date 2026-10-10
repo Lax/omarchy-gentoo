@@ -1,4 +1,4 @@
-# arch-pkgver: 1.4.2
+# arch-pkgver: 1.4.3
 # Ported from pkgbuilds/bun-bin. On amd64 both upstream variants (AVX2 and
 # baseline) are installed-able; the build machine's CPU picks which one
 # becomes bun, exactly like the Arch recipe (emerge on the target machine,
