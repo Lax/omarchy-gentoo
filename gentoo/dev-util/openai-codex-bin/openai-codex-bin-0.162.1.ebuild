@@ -1,4 +1,4 @@
-# arch-pkgver: 0.162.0
+# arch-pkgver: 0.162.1
 # Ported from pkgbuilds/openai-codex-bin. Static musl binaries; the CLI
 # generates its own shell completions at build time.
 EAPI=8
