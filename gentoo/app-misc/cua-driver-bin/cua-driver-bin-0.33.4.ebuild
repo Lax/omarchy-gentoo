@@ -1,7 +1,7 @@
 # arch-pkgver: 0.33.4
-# Ported from pkgbuilds/cua-driver-bin. Held at 0.28.2 by hand upstream:
-# 0.28.3 and newer break screenshots; bump only once a fixed release is
-# verified.
+# Ported from pkgbuilds/cua-driver-bin. Earlier 0.28.3..0.32.x releases
+# were held upstream for a screenshot regression; the hold lifted before
+# 0.33 once upstream fixed the screenshot path.
 EAPI=8
 
 DESCRIPTION="Computer-use driver for native GUI apps: accessibility-tree snapshots and input injection"

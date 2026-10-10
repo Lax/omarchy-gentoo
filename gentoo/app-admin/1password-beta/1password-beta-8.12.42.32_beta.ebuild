@@ -12,7 +12,7 @@ inherit desktop
 
 DESCRIPTION="Password manager and secure wallet"
 HOMEPAGE="https://1password.com"
-# PV 8.12.40.27_beta -> vendor 8.12.40-27.BETA
+# PV 8.12.42.32_beta -> vendor 8.12.42-32.BETA
 _beta_num=${PV%_beta}
 _tarver="${_beta_num%.*}-${_beta_num##*.}.BETA"
 SRC_URI="
