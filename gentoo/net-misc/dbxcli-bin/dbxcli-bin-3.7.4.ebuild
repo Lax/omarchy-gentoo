@@ -12,7 +12,7 @@ SRC_URI="
 	arm64? ( ${HOMEPAGE}/releases/download/v${PV}/dbxcli_${PV}_linux_arm64.tar.gz -> ${P}-arm64.tar.gz )
 "
 
-S="${WORKDIR}/dbxcli-${PV}"
+S="${WORKDIR}/dbxcli_${PV}_linux_${ARCH}"
 
 LICENSE="Apache-2.0"
 SLOT="0"
