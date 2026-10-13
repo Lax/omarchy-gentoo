@@ -18,3 +18,4 @@ omarchy-nvim	blocked	builds a networked nvim plugin tree at install time; needs 
 spotify	blocked	no Gentoo provider ships libcurl-gnutls.so.4; needs a dedicated compat package
 learn-omarchy	blocked	hard-depends on gpu-screen-recorder, which ::gentoo does not package (GURU only); re-port when a provider lands
 dotnet-core-bin	in-gentoo	::gentoo ships dev-dotnet/dotnet-sdk-bin covering the six-way split payload (keywordless - needs package.accept_keywords); consumers should depend on virtual/dotnet-sdk, as the omarchy metapackage already does
+qcom-firmware-extract	arch-only	copies vendor-signed Qualcomm Snapdragon firmware out of a Windows install on aarch64 laptops; the overlay is amd64-only, where no Qualcomm firmware is ever named by the device tree
