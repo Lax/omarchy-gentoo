@@ -34,6 +34,14 @@ src_prepare() {
 	eapply "${FILESDIR}"/dropboxd-fallback.patch
 }
 
+src_configure() {
+	# Upstream never configures: the CLI is generated straight from the
+	# dropbox.in template by src_compile below. Running econf would drag in
+	# the nautilus-dropbox autoconf machinery, whose libnautilus-extension-4
+	# probe fails on any system without GNOME Files.
+	:
+}
+
 src_compile() {
 	python3 build_dropbox.py "${PV}" "/usr/share/applications" \
 		< dropbox.in > dropbox-cli || die "generating dropbox-cli failed"
