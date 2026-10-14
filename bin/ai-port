@@ -206,15 +206,24 @@ cmd_verify() {
 
   if command -v docker >/dev/null 2>&1; then
     echo "-- docker stage3 gates (same runner as CI: bin/gentoo-resolve) --"
+    # Mirror CI's lint job: mount the host-synced ::gentoo tree read-only when
+    # one exists, so the gates still run on networks where gentoo.org (and
+    # therefore webrsync) is unreachable. Without a host tree the webrsync
+    # path below is the only fixture.
+    local host_tree=/var/db/repos/gentoo
+    [[ -d $host_tree/profiles ]] || host_tree=
     docker run --rm \
       -v "$BUILD_ROOT/gentoo:/var/db/repos/omarchy" \
       -v "$BUILD_ROOT/bin/gentoo-resolve:/usr/local/bin/gentoo-resolve:ro" \
+      ${host_tree:+-v "$host_tree:/var/db/repos/gentoo:ro"} \
       gentoo/stage3 bash -lc '
         set -eu
         command -v getuto >/dev/null && getuto || true
-        emerge-webrsync -q 2>/dev/null
+        # A failed quiet webrsync must not kill the script (set -e) before the
+        # fallbacks below get a chance; its stderr is noise either way.
+        emerge-webrsync -q 2>/dev/null || true
         [[ -d /var/db/repos/gentoo/profiles ]] || emerge-webrsync
-        [[ -d /var/db/repos/gentoo/profiles ]] || { echo "webrsync failed"; exit 1; }
+        [[ -d /var/db/repos/gentoo/profiles ]] || { echo "webrsync failed and no host ::gentoo tree is mounted"; exit 1; }
         mkdir -p /etc/portage/repos.conf
         ln -sf /usr/share/portage/config/repos.conf /etc/portage/repos.conf/gentoo.conf
         printf "[omarchy]\nlocation = /var/db/repos/omarchy\nmasters = gentoo\nauto-sync = off\n" > /etc/portage/repos.conf/omarchy.conf
