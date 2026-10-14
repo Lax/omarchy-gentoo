@@ -1,9 +1,0 @@
-# Omarchy's AI workflow resolves its coding agent by bare name against the
-# desktop session PATH, where /usr/bin sorts ahead of the mise shims - so any
-# system copy of opencode silently shadows the mise-installed agent the
-# upstream workflow provisions (issue #30). The 2.x line additionally cannot
-# reuse its own background service (service.ensure spawns a second server
-# onto its own port), which kills the crash-diagnose window on launch.
-# Confirmed installed versions keep working; to run v2 anyway for development,
-# add the same line to /etc/portage/package.unmask.
->=dev-util/opencode-bin-2.0
