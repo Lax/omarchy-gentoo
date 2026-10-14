@@ -178,4 +178,13 @@ pkg_postinst() {
 	elog "  equivalent and are not shipped; run 'omarchy update' instead of raw emerge."
 	elog "  Bash completion loads lazily on the first omarchy completion; upstream"
 	elog "  sources it at shell startup instead."
+	if [[ -e ${EROOT}/usr/bin/opencode ]]; then
+		ewarn "A system-level opencode exists at /usr/bin/opencode. Per upstream"
+		ewarn "design the AI workflow provisions its agent through mise, and the"
+		ewarn "desktop session PATH resolves /usr/bin ahead of the mise shims, so"
+		ewarn "that copy - not your mise agent - is what omarchy agent launches."
+		ewarn "opencode 2.x additionally cannot reuse its own background service"
+		ewarn "and dies on port collision (issue #30). Consider removing it:"
+		ewarn "  emerge --deselect dev-util/opencode-bin && emerge --depclean"
+	fi
 }
