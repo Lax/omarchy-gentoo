@@ -2,7 +2,7 @@
 # Copyright 2026, omarchy-gentoo overlay team
 # Distributed under the terms of the MIT license
 
-# Migration shim: app-shells/omarchy-fish moved to omarchy/omarchy-fish. Empty on purpose — it pulls the new
+# Migration shim (unversioned dep so upstream bumps cannot strand it): app-shells/omarchy-fish moved to omarchy/omarchy-fish. Empty on purpose — it pulls the new
 # location so a plain upgrade migrates installed systems. Drop this once
 # users have moved over.
 EAPI=8
@@ -14,7 +14,7 @@ LICENSE="MIT"
 SLOT="0"
 KEYWORDS="~amd64 ~arm64"
 
-RDEPEND="~omarchy/omarchy-fish-1.5.0"
+RDEPEND="omarchy/omarchy-fish"
 
 pkg_postinst() {
 	elog "app-shells/omarchy-fish has moved to omarchy/omarchy-fish; this package is an empty transitional"

@@ -2,7 +2,7 @@
 # Copyright 2026, omarchy-gentoo overlay team
 # Distributed under the terms of the MIT license
 
-# Migration shim: media-sound/omarchy-audio-tuner moved to omarchy-extra/omarchy-audio-tuner. Empty on purpose — it pulls the new
+# Migration shim (unversioned dep so upstream bumps cannot strand it): media-sound/omarchy-audio-tuner moved to omarchy-extra/omarchy-audio-tuner. Empty on purpose — it pulls the new
 # location so a plain upgrade migrates installed systems. Drop this once
 # users have moved over.
 EAPI=8
@@ -14,7 +14,7 @@ LICENSE="MIT"
 SLOT="0"
 KEYWORDS="~amd64 ~arm64"
 
-RDEPEND="~omarchy-extra/omarchy-audio-tuner-0.1.0"
+RDEPEND="omarchy-extra/omarchy-audio-tuner"
 
 pkg_postinst() {
 	elog "media-sound/omarchy-audio-tuner has moved to omarchy-extra/omarchy-audio-tuner; this package is an empty transitional"
