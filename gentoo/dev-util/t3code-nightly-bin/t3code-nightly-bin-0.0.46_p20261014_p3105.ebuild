@@ -1,4 +1,4 @@
-# arch-pkgver: 0.0.46_nightly.20261013.3080
+# arch-pkgver: 0.0.46_nightly.20261014.3105
 # Copyright 2026, omarchy-gentoo overlay team
 # Distributed under the terms of the MIT license
 
