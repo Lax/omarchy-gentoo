@@ -55,6 +55,7 @@ fd						sys-apps/fd
 ffmpeg					media-video/ffmpeg
 fish					app-shells/fish
 fontconfig				media-libs/fontconfig
+foot				gui-apps/foot
 freetype2				media-libs/freetype
 fuse2					sys-fs/fuse:0
 fzf						app-shells/fzf
@@ -90,9 +91,11 @@ libgcrypt				dev-libs/libgcrypt
 libglvnd				media-libs/libglvnd
 libgpg-error				dev-libs/libgpg-error
 libgtk-3.so=0			x11-libs/gtk+:3
+libgomp				DROP
 libnotify				x11-libs/libnotify
 libpng				media-libs/libpng
 libpulse				media-libs/libpulse
+librsvg				gnome-base/librsvg
 libsecret				app-crypt/libsecret
 libsm					x11-libs/libSM
 libstdc++				DROP
@@ -142,7 +145,9 @@ perl					dev-lang/perl
 perl-file-mimeinfo		dev-perl/File-MimeInfo
 pipewire				media-video/pipewire
 plymouth				sys-boot/plymouth
+pipewire-pulse				media-video/pipewire[pulseaudio]
 python					dev-lang/python
+python-cairo				dev-python/pycairo
 python-cffi				dev-python/cffi
 python-gobject			dev-python/pygobject
 qt6-base				dev-qt/qtbase:6
@@ -172,6 +177,7 @@ walker					gui-apps/walker
 wayland				dev-libs/wayland
 webkit2gtk-4.1				net-libs/webkit-gtk:4.1
 which				sys-apps/which
+wl-clipboard				gui-apps/wl-clipboard
 wireplumber				media-video/wireplumber
 xdg-desktop-portal-hyprland	gui-libs/xdg-desktop-portal-hyprland
 xdg-terminal-exec		x11-misc/xdg-terminal-exec
