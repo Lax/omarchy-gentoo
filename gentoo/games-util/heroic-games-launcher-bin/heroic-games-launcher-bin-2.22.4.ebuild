@@ -1,4 +1,4 @@
-# arch-pkgver: 2.22.3
+# arch-pkgver: 2.22.4
 # Ported from pkgbuilds/heroic-games-launcher-bin. The release asset is a
 # pacman-format payload carrying usr/ and opt/Heroic.
 EAPI=8
