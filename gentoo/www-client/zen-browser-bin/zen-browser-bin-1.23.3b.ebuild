@@ -1,4 +1,4 @@
-# arch-pkgver: 1.23.2b
+# arch-pkgver: 1.23.3b
 # Copyright 2026, omarchy-gentoo overlay team
 # Distributed under the terms of the MIT license
 
