@@ -168,6 +168,7 @@ systemd-libs				sys-apps/systemd
 ttf-font				media-fonts/liberation-fonts
 ttf-jetbrains-mono-nerd-basic	media-fonts/jetbrains-mono-nerd-basic
 ttf-liberation			media-fonts/liberation-fonts
+udev					virtual/udev
 ufw						net-firewall/ufw
 util-linux				sys-apps/util-linux
 util-linux-libs				sys-apps/util-linux
@@ -179,6 +180,7 @@ webkit2gtk-4.1				net-libs/webkit-gtk:4.1
 which				sys-apps/which
 wl-clipboard				gui-apps/wl-clipboard
 wireplumber				media-video/wireplumber
+xdg-desktop-portal			gui-libs/xdg-desktop-portal
 xdg-desktop-portal-hyprland	gui-libs/xdg-desktop-portal-hyprland
 xdg-terminal-exec		x11-misc/xdg-terminal-exec
 xdg-user-dirs				x11-misc/xdg-user-dirs

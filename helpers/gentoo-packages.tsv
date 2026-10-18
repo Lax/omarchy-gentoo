@@ -89,3 +89,7 @@ microsoft-edge-stable-bin	www-client	microsoft-edge-stable-bin
 zen-browser-bin	www-client	zen-browser-bin
 t3code-nightly-bin	dev-util	t3code-nightly-bin
 dropbox-cli	net-misc	dropbox-cli
+omadesign-bin	media-gfx	omadesign-bin
+collie-bin	app-misc	collie-bin
+omarchy-themes-intros	omarchy	omarchy-themes-intros
+helium-browser-bin	www-client	helium-browser-bin
