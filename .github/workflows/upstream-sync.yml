@@ -11,6 +11,12 @@ name: Upstream sync
 # read versions (with CARCH set, the house convention), ebuilds are never
 # run here; the merged result is validated post-push by gentoo.yml's gates,
 # which file issues on failure - the loop closes itself.
+#
+# The gates are triggered explicitly: a push made with GITHUB_TOKEN fires
+# no push event for other workflows, so until 2026-10-18 automation bumps
+# sat ungated and unpublished until the next nightly (or an agent push).
+# Each push now dispatches gentoo.yml (lint + sync-check + mirror; the
+# smoke stays nightly-owned, see that workflow's dispatch input).
 on:
   schedule:
     - cron: "41 */3 * * *" # every 3 hours, off the overlay loop's schedule
@@ -19,6 +25,7 @@ on:
 permissions:
   contents: write
   issues: write
+  actions: write
 
 concurrency:
   group: upstream-sync
@@ -78,6 +85,19 @@ jobs:
           fi
           git push --quiet origin master
           echo "pushed $(git rev-parse --short HEAD)"
+          # A GITHUB_TOKEN push fires no push event for other workflows, so
+          # the overlay gates would never see this bump until the nightly.
+          # Dispatch them now (needs actions:write); fail loud - a silent
+          # dispatch failure would strand the bump ungated and unpublished.
+          status=$(curl -sS -o /tmp/dispatch.out -w "%{http_code}" -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/gentoo.yml/dispatches" \
+            -d '{"ref":"master"}')
+          case "$status" in
+            2*) echo "gentoo.yml dispatched" ;;
+            *) echo "dispatching gentoo.yml failed (${status}): $(cat /tmp/dispatch.out)"; exit 1 ;;
+          esac
           if grep -qE '^skip |FAIL |by hand' /tmp/reconcile.log; then
             echo "needs_human=true" >> "$GITHUB_OUTPUT"
             cp /tmp/reconcile.log /tmp/followup.log

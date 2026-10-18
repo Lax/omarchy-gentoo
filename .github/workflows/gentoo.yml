@@ -11,6 +11,9 @@ name: Gentoo overlay
 # drift gate (the smoke, on the self-hosted runner) and on demand, the
 # unported queue is filed as a tracking issue agents pick work from, and
 # any gate failure files an issue so nobody has to watch the Actions tab.
+# The upstream-sync automation dispatches this workflow after every bump
+# (a GITHUB_TOKEN push fires no push event), so automated bumps are
+# linted and published within minutes instead of waiting for the nightly.
 #
 # Trust model: PRs may change what the overlay contains (ebuilds), and the
 # lint job only ever parses that content with repo-owned tooling inside a
@@ -48,6 +51,11 @@ on:
     # off the Arch pipeline's schedule.
     - cron: "17 3 * * *"
   workflow_dispatch:
+    inputs:
+      smoke:
+        description: "Also run the smoke emerge (hours, self-hosted)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -111,7 +119,10 @@ jobs:
     # green before it starts, and its own inline pkgcheck scan gates the
     # emerge. Never pull_request (fork code cannot reach the self-hosted
     # machine).
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    # Schedule/nightly, or an explicit dispatch asking for the smoke.
+    # Plain dispatches (the upstream-sync bumps) validate and publish only -
+    # they never pay for a desktop-sized build they did not ask for.
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.smoke)
     needs: [sync-check]
     runs-on: [self-hosted, omarchy-smoke]
     timeout-minutes: 350
@@ -261,8 +272,10 @@ jobs:
   coverage:
     # File/update the tracking issue that IS the porting backlog: the unported
     # queue from bin/ai-port --list-open, with skips and blockers. This issue
-    # is what coding agents pick work from; keep it honest.
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    # is what coding agents pick work from; keep it honest. Full-loop runs
+    # only - the upstream-sync bumps dispatch this workflow every few hours,
+    # and regenerating the board each time would only churn the issue.
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.smoke)
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
@@ -319,13 +332,20 @@ jobs:
   mirror:
     # Publish: regenerate Manifests and publish the tree to
     # Lax/omarchy-overlay, whose root is the overlay users sync. Runs
+    # on push to master and on dispatch (the upstream-sync bumps arrive
+    # as dispatches - their GITHUB_TOKEN push fires no push event, see
+    # the workflow header), always from the master ref. Runs
     # self-hosted next to
     # the smoke job: Manifest generation reuses the shared distfiles volume
     # instead of re-downloading ~3.5GB on every push, and the single runner
     # serializes mirrors that GitHub-hosted runners could run in parallel.
     # Publication follows the runner machine's availability - the same
     # trade the smoke makes.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    if: >-
+      ${{
+        (github.event_name == 'push' && github.ref == 'refs/heads/master') ||
+        (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master')
+      }}
     runs-on: [self-hosted, omarchy-smoke]
     steps:
       - name: Reset workspace (stage3 writes root-owned md5-cache into the tree)
@@ -508,14 +528,18 @@ jobs:
   close-loop:
     # The green half of the failure loop: once every gate passes, close the
     # tracking issue the report job opened, so an open issue always means
-    # "master is broken right now".
+    # "master is broken right now". Only a run in which the smoke actually
+    # merged its package may close: on push/dispatch runs the smoke is
+    # skipped, and before 2026-10-18 such runs closed smoke-failure issues
+    # the smoke had never re-proven.
     needs: [lint, smoke-emerge, mirror, sync-check]
     if: >-
       ${{
         always() &&
         github.event_name != 'pull_request' &&
         !contains(needs.*.result, 'failure') &&
-        !contains(needs.*.result, 'cancelled')
+        !contains(needs.*.result, 'cancelled') &&
+        needs.smoke-emerge.result == 'success'
       }}
     runs-on: ubuntu-24.04
     steps:
