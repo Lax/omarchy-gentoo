@@ -183,8 +183,27 @@ sync_one() {
 			sed -i "s|^${pin%%:*}=.*|${pin%%:*}=$val|" "$target"
 		fi
 	done
+	local stale=""
 	if grep -qF -- "$old_pv" "$target"; then
-		echo "bump  $category/$gname: renamed to $new_pv BUT '$old_pv' still appears inside; update pinned URLs by hand"
+		stale=$old_pv
+	fi
+	# Opaque URL pins carry the raw Arch spelling of the version (and URL
+	# escapes of it), which the Gentoo-spelling grep above cannot see:
+	# perplexity's hand-pinned _build rode through a bump as
+	# 26.9.6%2Bbuild89647 while the marker moved on, and every manifest
+	# run 403'd on the vanished old debs until noticed by hand. A pin that
+	# legitimately tracks pkgver must move with every bump, so ANY residue
+	# of the previous version is work - flagged here, filed as an issue by
+	# the upstream-sync automation (its reconcile log greps this message).
+	local raw_esc=${baseline//+/%2B}
+	if [[ -z "$stale" ]] && grep -qF -- "$baseline" "$target"; then
+		stale=$baseline
+	fi
+	if [[ -z "$stale" && "$raw_esc" != "$baseline" ]] && grep -qF -- "$raw_esc" "$target"; then
+		stale=$raw_esc
+	fi
+	if [[ -n "$stale" ]]; then
+		echo "bump  $category/$gname: renamed to $new_pv BUT '$stale' still appears inside; update pinned URLs by hand"
 	else
 		echo "bump  $category/$gname: renamed to $new_pv"
 	fi
@@ -322,6 +341,41 @@ SH
 		(cd "$fixture" && ./bin/sync-gentoo >/dev/null 2>&1)
 		check "no-args sync renames every drifted row" "yes" \
 			"$([[ -f "$fixture/gentoo/app-misc/fixture/fixture-1.2.0.ebuild" ]] && echo yes || echo no)"
+
+		# A version-bearing opaque pin the recipe cannot derive - upstream
+		# builds its URL straight from pkgver, the ebuild hand-pins the
+		# URL-escaped spelling (the perplexity 403 class). The bump must
+		# flag the residue in its raw spellings, not just the Gentoo-folded
+		# one, and leave the value for the hand update.
+		rm -f "$fixture/gentoo/app-misc/fixture/fixture-1.2.0.ebuild"
+		printf '%s\n' \
+			"# arch-pkgver: 1.2.0+build9" \
+			"EAPI=8" \
+			'DESCRIPTION="fixture"' \
+			"_BUILD=1.2.0%2Bbuild9" \
+			"SRC_URI=\"https://example.com/dl/fixture.tar.gz\"" \
+			>"$fixture/gentoo/app-misc/fixture/fixture-1.2.0_p9.ebuild"
+		printf '%s\n' "pkgname=fixture" "pkgver=1.2.1+build3" "pkgrel=1" \
+			"arch=('any')" "license=('MIT')" "url='https://example.com'" \
+			>"$fixture/omarchy-pkgs/pkgbuilds/fixture/PKGBUILD"
+		local ride_out
+		ride_out=$(cd "$fixture" && ./bin/sync-gentoo fixture 2>&1) || true
+		check "underivable raw pin flagged" "1" \
+			"$(grep -c 'update pinned URLs by hand' <<<"$ride_out")"
+		check "raw pin left for the hand update" "1.2.0%2Bbuild9" \
+			"$(sed -n 's/^_BUILD=//p' "$fixture/gentoo/app-misc/fixture/fixture-1.2.1_p3.ebuild")"
+
+		# The pin moved by hand together with the bump stays quiet: the
+		# hand update names the version being bumped to.
+		sed -i 's/^_BUILD=.*/_BUILD=1.2.2%2Bbuild5/' \
+			"$fixture/gentoo/app-misc/fixture/fixture-1.2.1_p3.ebuild"
+		printf '%s\n' "pkgname=fixture" "pkgver=1.2.2+build5" "pkgrel=1" \
+			"arch=('any')" "license=('MIT')" "url='https://example.com'" \
+			>"$fixture/omarchy-pkgs/pkgbuilds/fixture/PKGBUILD"
+		local quiet_out
+		quiet_out=$(cd "$fixture" && ./bin/sync-gentoo fixture 2>&1) || true
+		check "hand-moved pin bumps quiet" "0" \
+			"$(grep -c 'update pinned URLs by hand' <<<"$quiet_out")"
 	else
 		(cd "$fixture" && ./bin/sync-gentoo fixture >/dev/null 2>&1)
 		check "no vercmp: refuses to rename" "yes" \
