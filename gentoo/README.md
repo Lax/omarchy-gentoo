@@ -23,6 +23,20 @@ eselect repository add omarchy git https://github.com/Lax/omarchy-overlay.git
 emaint sync -r omarchy
 ```
 
+Omarchy-tagged atoms must win when another repository carries the same
+package (quickshell lives in guru too, for example - on Arch this is
+what the repository-priority setup in pacman.conf does). eselect
+does not set a priority, so add one inside the `[omarchy]` section it
+wrote to `/etc/portage/repos.conf/eselect-repo.conf`:
+
+```ini
+[omarchy]
+location = /var/db/repos/omarchy
+sync-type = git
+sync-uri = https://github.com/Lax/omarchy-overlay.git
+priority = 100
+```
+
 Without eselect-repository, hand-write the same thing:
 
 ```ini

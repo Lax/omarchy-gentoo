@@ -18,9 +18,9 @@
 1786273938.sh
 # 1786355450 — omarchy-pkg-add ttfx: ttfx is not ported yet (P2 candidate).
 1786355450.sh
-# 1786952219 — pacman swap of Arch's mise for omarchy's mise-bin: Gentoo has
-# no mise package at all (manual install per README), so the swap cannot and
-# must not happen.
+# 1786952219 — pacman swap of Arch's mise for omarchy's mise-bin: moot here.
+# The same payload is dev-util/mise-bin (ported), so package management
+# belongs to Portage either way - the swap must not happen.
 1786952219.sh
 # 1787589206 — edits /etc/pacman.conf, which does not exist on Gentoo; the
 # script's final guard then ends the run nonzero and would stay pending

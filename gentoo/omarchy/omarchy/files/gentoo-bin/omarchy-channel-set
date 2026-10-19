@@ -3,8 +3,8 @@
 # omarchy:summary=Switch the Omarchy update channel (stable, rc, edge)
 # omarchy:args=<stable|rc|edge>
 # Gentoo port: there is no pacman repository to repoint. stable is the pinned
-# ebuild line; an edge (quattro live) channel is not packaged yet — see
-# ROADMAP.md.
+# ebuild line; an edge (quattro live) channel is not packaged yet — tracked
+# in the overlay issue tracker (label: edge-channel).
 
 case "${1:-}" in
   stable)
@@ -13,8 +13,9 @@ case "${1:-}" in
     exit 0
     ;;
   edge|rc)
-    echo "No edge/rc channel on Gentoo yet (see ROADMAP.md)." >&2
-    echo "The overlay only pins released upstream tags for now." >&2
+    echo "No edge/rc channel on Gentoo yet - tracked in the overlay issue" >&2
+    echo "tracker (label: edge-channel). The overlay only pins released" >&2
+    echo "upstream tags for now." >&2
     exit 1
     ;;
   *)
