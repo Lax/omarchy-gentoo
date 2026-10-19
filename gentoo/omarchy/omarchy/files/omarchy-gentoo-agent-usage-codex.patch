@@ -1,0 +1,24 @@
+--- a/bin/omarchy-agent-usage-codex
++++ b/bin/omarchy-agent-usage-codex
+@@ -215,6 +215,21 @@
+   db = Path(os.environ.get("XDG_DATA_HOME") or (Path.home() / ".local" / "share")) / "opencode" / "opencode.db"
+   if not db.is_file():
+     return True
++
++  # Gentoo port: a full LIKE + json_valid scan costs roughly a minute per
++  # GB, runs again on every panel refresh, and holds the scan flock the
++  # whole time. A scan only reaches the cache once it completes, so a DB
++  # beyond the cap below turns this collector into a permanent 100% CPU
++  # process while everything else queues on its flock. Cap it: report the
++  # opencode part as incomplete (the record omits opencode usage) instead
++  # of scanning. Upstream chunked/incremental scanning is the proper fix.
++  try:
++    db_size = db.stat().st_size
++  except OSError:
++    return False
++  if db_size > 1 << 30:  # 1 GiB
++    print(f"omarchy-agent-usage-codex: opencode.db is {db_size >> 20} MB; skipping the opencode scan", file=sys.stderr)
++    return False
+   try:
+     conn = sqlite3.connect(db.resolve().as_uri() + "?mode=ro", uri=True, timeout=2)
+   except sqlite3.Error:
