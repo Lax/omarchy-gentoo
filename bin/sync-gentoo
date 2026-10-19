@@ -171,11 +171,15 @@ sync_one() {
 		sed -i "1i $MARKER $current_pv" "$target"
 	fi
 	# Opaque pins: derivation params some ebuilds carry (_COMMIT, _BUILD,
-	# _RELVER) never contain the version string, so the version rewrite
-	# above cannot reach them - cursor-bin 403'd on every CDN rotation
-	# until these were re-read from the PKGBUILD at bump time.
+	# _RELVER, and the omarchy pair's OMARCHY_COMMIT/OMARCHY_TAG) never
+	# contain the version string (or carry it in a spelling the rewrite
+	# cannot see), so the version rewrite above cannot reach them -
+	# cursor-bin 403'd on every CDN rotation and the omarchy 4.0.5 rename
+	# left the pair building the 4.0.4 tree until these were re-read from
+	# the PKGBUILD at bump time.
 	local pin src val
-	for pin in _COMMIT:_commit _BUILD:_build _RELVER:_relver; do
+	for pin in _COMMIT:_commit _BUILD:_build _RELVER:_relver \
+		OMARCHY_COMMIT:_commit OMARCHY_TAG:_tag; do
 		src=${pin#*:}
 		val=$(package_pkgbuild_var "$pkgdir" "$src" 2>/dev/null || true)
 		[[ -n "$val" ]] || continue
@@ -285,6 +289,7 @@ SH
 	printf '%s\n' \
 		"pkgname=fixture" "pkgver=1.0.0" "pkgrel=1" "arch=('any')" \
 		"license=('MIT')" "url='https://example.com'" "_commit=aaa111" \
+		"_tag=v1.0.0" \
 		>"$fixture/omarchy-pkgs/pkgbuilds/fixture/PKGBUILD"
 
 	local ebuild="$fixture/gentoo/app-misc/fixture/fixture-1.0.0.ebuild"
@@ -293,6 +298,7 @@ SH
 		"EAPI=8" \
 		'DESCRIPTION="fixture"' \
 		"_COMMIT=aaa111" \
+		"OMARCHY_TAG=v1.0.0" \
 		"SRC_URI=\"https://example.com/dl/fixture-1.0.0.tar.gz\"" \
 		>"$ebuild"
 	check "marker parsed" "1.0.0" "$(marker_pkgver "$ebuild")"
@@ -307,6 +313,7 @@ SH
 	# these commands are EXPECTED to fail, and the self-test runs set -e.)
 	printf '%s\n' "pkgname=fixture" "pkgver=1.1.0" "pkgrel=1" "arch=('any')" \
 		"license=('MIT')" "url='https://example.com'" "_commit=bbb222" \
+		"_tag=v1.1.0" \
 		>"$fixture/omarchy-pkgs/pkgbuilds/fixture/PKGBUILD"
 	rc=0
 	(cd "$fixture" && ./bin/sync-gentoo --check >/dev/null 2>&1) || rc=$?
@@ -319,6 +326,8 @@ SH
 		check "marker rewritten" "1.1.0" "$(marker_pkgver "$fixture/gentoo/app-misc/fixture/fixture-1.1.0.ebuild")"
 		check "opaque pin refreshed at bump" "bbb222" \
 			"$(sed -n 's/^_COMMIT=//p' "$fixture/gentoo/app-misc/fixture/fixture-1.1.0.ebuild")"
+		check "omarchy tag pin refreshed at bump" "v1.1.0" \
+			"$(sed -n 's/^OMARCHY_TAG=//p' "$fixture/gentoo/app-misc/fixture/fixture-1.1.0.ebuild")"
 		check "stale pin flagged" "1" "$(grep -c 'update pinned URLs by hand' <<<"$bump_out")"
 		(cd "$fixture" && ./bin/sync-gentoo --check >/dev/null 2>&1)
 		check "back in sync exits 0" "0" "$?"
