@@ -15,7 +15,12 @@ HOMEPAGE="https://github.com/omacom/omarchy"
 # PKGBUILD's _commit/_tag at bump time.
 OMARCHY_TAG="v4.0.5"
 OMARCHY_COMMIT="94a8fbc2d67eec5673c7f16b8c5e8a9c8452ffdc"
-SRC_URI="https://github.com/omacom/omarchy/archive/${OMARCHY_COMMIT}.tar.gz -> omarchy-${PV}.tar.gz"
+# The distfile name carries the commit: the archive content is keyed on the
+# pin, not the version, and a pin move under a stable PV must not keep
+# resolving to the previous pin's cached archive (2026-10-19: the published
+# Manifest briefly recorded the 4.0.4-pin archive under this 4.0.5 name,
+# failing every real fetch with a size mismatch).
+SRC_URI="https://github.com/omacom/omarchy/archive/${OMARCHY_COMMIT}.tar.gz -> omarchy-${PV}_${OMARCHY_COMMIT}.tar.gz"
 S="${WORKDIR}/omarchy-${OMARCHY_COMMIT}"
 
 LICENSE="MIT"
