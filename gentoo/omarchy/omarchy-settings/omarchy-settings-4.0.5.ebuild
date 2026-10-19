@@ -11,9 +11,10 @@ HOMEPAGE="https://github.com/omacom/omarchy"
 
 # Mirrors the pin block of upstream omacom/omarchy-pkgs pkgbuilds/omarchy-settings.
 # _tag is provenance only; _commit is the single source of truth. Must stay in
-# lockstep with omarchy/omarchy — scripts/bump-omarchy.sh rewrites both.
-OMARCHY_TAG="v4.0.4"
-OMARCHY_COMMIT="c668141e9c42b13c80c9ca4ea108e11708c5e8a5"
+# lockstep with omarchy/omarchy - sync-gentoo refreshes both from the
+# PKGBUILD's _commit/_tag at bump time.
+OMARCHY_TAG="v4.0.5"
+OMARCHY_COMMIT="94a8fbc2d67eec5673c7f16b8c5e8a9c8452ffdc"
 SRC_URI="https://github.com/omacom/omarchy/archive/${OMARCHY_COMMIT}.tar.gz -> omarchy-${PV}.tar.gz"
 S="${WORKDIR}/omarchy-${OMARCHY_COMMIT}"
 
