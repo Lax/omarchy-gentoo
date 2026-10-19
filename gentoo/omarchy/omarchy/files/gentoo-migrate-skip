@@ -33,3 +33,8 @@
 # 1789444024 — installs linux-omarchy/linux-t2 kernel headers: same kernel
 # policy as 1789325478.
 1789444024.sh
+# 1791403252 — edits /etc/pacman.conf to prioritize the Omarchy package
+# repository over the Arch repositories: there is no pacman.conf on Gentoo
+# (same class as 1787589206), and on Gentoo that priority is inherent - the
+# overlay is the package source, Portage owns ordering.
+1791403252.sh
