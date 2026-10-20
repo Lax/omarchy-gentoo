@@ -1,4 +1,4 @@
-# arch-pkgver: 8.12.40
+# arch-pkgver: 8.12.42
 # Ported from pkgbuilds/1password. Two deliberate Gentoo differences:
 # - the onepassword group is an acct-group package (Arch: .install groupadd);
 #   the setgid browser helper is handled in pkg_postinst;

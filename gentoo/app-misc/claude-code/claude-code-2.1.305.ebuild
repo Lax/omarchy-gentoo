@@ -1,4 +1,4 @@
-# arch-pkgver: 2.1.304
+# arch-pkgver: 2.1.305
 # Ported from pkgbuilds/claude-code. The binary is a self-contained Bun
 # executable with embedded JS/resources - stripping breaks it. The wrapper
 # suppresses upstream's self-update paths: on Gentoo, Portage is the only
