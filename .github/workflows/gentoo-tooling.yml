@@ -83,7 +83,11 @@ jobs:
             # restricted pre-source parser falls back to EAPI 0 when any
             # other assignment precedes it, and the package then masks as
             # corrupt (SourcingError) - only visible in the heavy gate.
-            grep -vE '^[[:space:]]*(#|$)' "$ebuild" | head -1 | grep -q '^EAPI=' || {
+            # Command substitution, not a pipe: `grep | head` under
+            # pipefail dies of SIGPIPE on files longer than the pipe
+            # buffer, which would fail every large ebuild.
+            first_code=$(awk 'NF && $1 !~ /^#/ { print; exit }' "$ebuild")
+            [[ "$first_code" == EAPI=* ]] || {
               echo "$ebuild: EAPI= is not its first code line; move global pins below it"
               exit 1
             }

@@ -222,3 +222,10 @@ check shipped with `$1 !~ /^(|#)/`, a regex that matches the empty string
 and filtered out every row; a local dry-run caught it, the push would not
 have. Paste the block into a shell, run it against the real tree, and only
 then move it into the workflow.
+
+And a local dry-run can still lie once: the steps run under
+`set -euo pipefail`, your shell may not. `grep ... | head -1` passed
+locally and failed CI on every large file — grep got SIGPIPE when head
+closed the pipe, pipefail turned 141 into a failed pipeline. Under
+pipefail, never put a early-exiting reader (head, grep -q) downstream of
+a writer; capture through command substitution instead.
