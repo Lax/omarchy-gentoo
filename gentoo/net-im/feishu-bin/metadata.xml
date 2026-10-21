@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="project">
+		<email>hello@omarchy.org</email>
+		<name>Omarchy</name>
+	</maintainer>
+	<longdescription>
+		Feishu (飞书), ByteDance's messaging, meetings and docs suite for
+		the China service. Repackaged from the vendor deb; the launcher
+		picks native Wayland under a Wayland session and reads extra
+		chromium flags from ~/.config/feishu-flags.conf.
+	</longdescription>
+</pkgmetadata>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="project">
+		<email>hello@omarchy.org</email>
+		<name>Omarchy</name>
+	</maintainer>
+	<longdescription>
+		Maple Mono NF CN: the Maple Mono monospace family with Nerd Font
+		icon glyphs and CJK glyphs merged in, hinted build. The variant
+		Omarchy ships as its default CJK-capable coding font.
+	</longdescription>
+	<upstream>
+		<remote-id type="github">subframe7536/maple-font</remote-id>
+	</upstream>
+</pkgmetadata>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="project">
+		<email>hello@omarchy.org</email>
+		<name>Omarchy</name>
+	</maintainer>
+	<longdescription>
+		WeChat (微信) for Linux, Tencent's official client. Repackaged
+		from the vendor deb; installs under /opt/wechat with the vendor's
+		hidden mini-program-runtime desktop entry kept.
+	</longdescription>
+</pkgmetadata>

@@ -21,3 +21,4 @@ dotnet-core-bin	in-gentoo	::gentoo ships dev-dotnet/dotnet-sdk-bin covering the 
 qcom-firmware-extract	arch-only	copies vendor-signed Qualcomm Snapdragon firmware out of a Windows install on aarch64 laptops; the overlay is amd64-only, where no Qualcomm firmware is ever named by the device tree
 alsa-ucm-conf-aurora	arch-only	Aurora (Apple Silicon/Asahi) ALSA UCM profiles: the content targets Apple Silicon audio hardware the amd64-only overlay never names; reconsider if the overlay ever ships aarch64
 aurora-audio	arch-only	Aurora (Apple Silicon/Asahi) PipeWire/WirePlumber DSP profiles: same target-hardware reasoning as alsa-ucm-conf-aurora
+ghost	blocked	hard-depends on wtype, removed from the ::gentoo 2026 tree and not in omarchy-pkgs; porting wtype into the overlay would unblock it (its remaining closure - bun-bin, hyprland, quickshell, dev-qt/qt5compat - is covered)

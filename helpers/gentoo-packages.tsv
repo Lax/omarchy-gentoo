@@ -18,8 +18,10 @@ crush-bin	dev-util	crush-bin
 cua-driver-bin	app-misc	cua-driver-bin
 cursor-bin	dev-util	cursor-bin
 dbxcli-bin	net-misc	dbxcli-bin
+dingtalk-bin	net-im	dingtalk-bin
 disktree-bin	sys-fs	disktree-bin
 dropbox	net-misc	dropbox
+feishu-bin	net-im	feishu-bin
 elephant	gui-apps	elephant
 # elephant-* are many-to-one: one merged ebuild ships the daemon
 # and every provider plugin (same tag, same source).
@@ -45,6 +47,7 @@ libretro-database-git	games-emulation	libretro-database
 lmstudio-bin	app-misc	lmstudio-bin
 localsend-bin	net-misc	localsend-bin
 makima-bin	app-misc	makima-bin
+maplemono-nf-cn	media-fonts	maplemono-nf-cn
 minecraft-launcher	games-action	minecraft-launcher
 mise-bin	dev-util	mise-bin
 nordvpn-bin	net-vpn	nordvpn-bin
@@ -88,6 +91,7 @@ brave-bin	www-client	brave-bin
 brave-origin-bin	www-client	brave-origin-bin
 microsoft-edge-stable-bin	www-client	microsoft-edge-stable-bin
 zen-browser-bin	www-client	zen-browser-bin
+wechat-bin	net-im	wechat-bin
 t3code-nightly-bin	dev-util	t3code-nightly-bin
 dropbox-cli	net-misc	dropbox-cli
 omadesign-bin	media-gfx	omadesign-bin

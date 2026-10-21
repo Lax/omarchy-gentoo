@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="project">
+		<email>hello@omarchy.org</email>
+		<name>Omarchy</name>
+	</maintainer>
+	<longdescription>
+		DingTalk (钉钉), Alibaba's official Linux client: messaging,
+		meetings and workspace for teams. Repackaged from the vendor deb
+		with the bundled GCC-8-era system libraries removed so the Gentoo
+		ones win; runs under XWayland (the bundled Qt ships no Wayland
+		platform plugin).
+	</longdescription>
+</pkgmetadata>
