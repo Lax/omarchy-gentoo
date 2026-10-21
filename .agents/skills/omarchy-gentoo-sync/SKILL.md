@@ -154,6 +154,15 @@ read-only — same tree fixture, no webrsync. Verdicts were verified equivalent
 to a green CI run on 2026-09-25. Pass `--canonical` to run the CI-identical
 path anyway (needs gentoo.org reachable).
 
+Read the WHOLE pkgcheck findings for every package you touched in one
+pass — not just the `FAIL`/`resolved` lines. A first run greps only for
+failures, misses the fixable warnings (deprecated insinto, over-long
+SRC_URI lines, a BDEPEND unkeyworded on an arch you declared), and buys
+two extra full scans per finding. Filter to "warning exists in my new
+package but in no existing one" — the overlay tolerates some known noise
+(sys-apps/systemd profile findings, HomepageInSrcUri on pre-existing
+packages), so the precedent, not the warning count, decides what to fix.
+
 Gate classifications to read correctly:
 - `ok <atom> (USE changes needed)` — fine: bare stage3 profile lacks desktop
   USE; the overlay's declarations are what's being checked.
@@ -176,7 +185,17 @@ Gate classifications to read correctly:
 - Two commits, matching repo style (terse, lowercase, area-prefixed):
   1. `omarchy-pkgs: bump submodule to <short> (<one-line theme>)`
   2. `overlay: port <name>` / `overlay: drop <name>` / `overlay: fix <what>`
+- Commit with explicit pathspecs (`git commit -m ... -- omarchy-pkgs`):
+  the renames `git mv` stages make a bare `git commit` sweep them into
+  the first commit (two sessions in a row lost clean history to this).
+  But pathspec commits see only tracked paths — `git add` new package
+  dirs first, or the commit records the rename as a bare deletion and
+  strands the new file untracked. Verify with `git log --stat` before
+  pushing.
 - Never commit `Manifest` files or `metadata/md5-cache` — CI generates them.
+- Multi-paragraph issue comments go through `gh issue comment --body-file`,
+  never a double-quoted `--comment`: backticks inside one are one shell
+  accident away from command substitution.
 - Push straight to `master`. If rejected, `git pull --rebase` and retry.
 - Nightly CI confirms the fix; check `gh run list --workflow gentoo.yml`
   after the nightly runs if you want closure.
@@ -196,3 +215,10 @@ When upstream's structure moves (Step 2.4), extend the tooling there — never
 work around it ad hoc in an ebuild — and run all three `--self-test`s. If
 this flow changed, update this SKILL.md in the same change so the skill
 never drifts from reality.
+
+New bash blocks destined for a workflow YAML get executed locally before
+they are pushed — `bash -n` proves nothing about logic. An early orphan
+check shipped with `$1 !~ /^(|#)/`, a regex that matches the empty string
+and filtered out every row; a local dry-run caught it, the push would not
+have. Paste the block into a shell, run it against the real tree, and only
+then move it into the workflow.

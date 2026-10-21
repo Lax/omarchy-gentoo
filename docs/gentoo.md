@@ -55,6 +55,7 @@ shipped); the nightly coverage job files the same list as a GitHub issue.
 | `pkgver` with epoch / lettered dot-components | epoch dropped; `1.2.r3` → `1.2_p3` style suffixes; pkgrel dropped |
 | `omarchy-keyring`, Arch-channel shims | not ported (Arch-only payloads) |
 | SPDX-style license tokens the tree lacks | map to the tree's tokens (`GPL-3.0-only`→`GPL-3`, `BSD-3-Clause`→`BSD`, ...) with a comment keeping the upstream truth |
+| everything | `EAPI=` is the ebuild's first code line; global pins (`_COMMIT`, `_hash_*`, ...) go after it. Portage's restricted pre-source parser falls back to EAPI 0 when any other assignment precedes it, and the package masks as corrupt (`SourcingError`) |
 
 Two tools encode the mechanical part:
 

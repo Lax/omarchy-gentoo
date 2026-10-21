@@ -79,6 +79,14 @@ jobs:
           # drift checker needs (bin/sync-gentoo --check in gentoo.yml).
           for ebuild in gentoo/*/*/*.ebuild; do
             bash -n "$ebuild"
+            # EAPI must be the ebuild's first code line: portage's
+            # restricted pre-source parser falls back to EAPI 0 when any
+            # other assignment precedes it, and the package then masks as
+            # corrupt (SourcingError) - only visible in the heavy gate.
+            grep -vE '^[[:space:]]*(#|$)' "$ebuild" | head -1 | grep -q '^EAPI=' || {
+              echo "$ebuild: EAPI= is not its first code line; move global pins below it"
+              exit 1
+            }
             case "$ebuild" in
               gentoo/acct-group/*) ;; # generated groups carry no baseline
               *)
