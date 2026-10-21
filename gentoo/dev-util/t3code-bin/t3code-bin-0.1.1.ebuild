@@ -1,4 +1,4 @@
-# arch-pkgver: 0.1.0
+# arch-pkgver: 0.1.1
 # Ported from pkgbuilds/t3code-bin. The AppImage is unpacked at build time
 # (never executed); only the Electron tree, its icons and upstream's desktop
 # entry are kept.
