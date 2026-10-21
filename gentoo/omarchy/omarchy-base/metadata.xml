@@ -14,6 +14,6 @@
 		comments list every omission with its reason.
 	</longdescription>
 	<upstream>
-		<remote-id type="github">basecamp/omarchy</remote-id>
+		<remote-id type="github">omacom/omarchy</remote-id>
 	</upstream>
 </pkgmetadata>

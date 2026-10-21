@@ -89,6 +89,31 @@ jobs:
                 ;;
             esac
           done
+          # Reverse direction: every overlay package has a table row.
+          # Without this an overlay-original meta with no upstream recipe
+          # (omarchy-base) can drift silently - the reconcile only walks
+          # rows. Deliberate no-row dirs: acct-group shims, portage's
+          # generated metadata cache, and migration shims (old-category
+          # pointer packages whose ebuilds say "Migration shim"; dropped
+          # once users have moved over).
+          mapfile -t orphans < <(comm -23 \
+            <(find gentoo -mindepth 2 -maxdepth 2 -type d \
+                -not -path 'gentoo/acct-group/*' -not -path 'gentoo/metadata/*' \
+              | sed 's|^gentoo/||' | sort) \
+            <(awk -F '\t' '$1 != "" && $1 !~ /^#/ { print $2 "/" $3 }' \
+              helpers/gentoo-packages.tsv | sort))
+          real_orphans=()
+          for orphan in "${orphans[@]}"; do
+            shim=1
+            for ebuild in gentoo/"$orphan"/*.ebuild; do
+              grep -q 'Migration shim' "$ebuild" || { shim=0; break; }
+            done
+            [[ "$shim" -eq 1 ]] || real_orphans+=("$orphan")
+          done
+          for orphan in "${real_orphans[@]}"; do
+            echo "gentoo/$orphan has no packages.tsv row"
+          done
+          [[ "${#real_orphans[@]}" -eq 0 ]] || exit 1
 
       - name: gentoo.yml docker scripts are quote-safe
         run: |

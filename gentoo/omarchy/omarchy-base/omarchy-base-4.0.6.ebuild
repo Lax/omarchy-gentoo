@@ -1,12 +1,17 @@
-# arch-pkgver: 4.0.4
+# arch-pkgver: 4.0.6
 # Copyright 2026, omarchy-gentoo overlay team
 # Distributed under the terms of the MIT license
 
-# The package set upstream's ISO installs by default: basecamp/omarchy
-# v4.0.4 ships it as a plain list (install/omarchy-base.packages), not a
-# package, so this meta maps it 1:1 onto ::gentoo and this overlay. Entries
-# that cannot be provided are dropped, not guessed — see the omission list
-# at the bottom.
+# The package set upstream's ISO installs by default: omacom/omarchy
+# ships it as a plain list (install/omarchy-base.packages), not a package,
+# so this meta maps it 1:1 onto ::gentoo and this overlay. Entries that
+# cannot be provided are dropped, not guessed — see the omission list at
+# the bottom.
+#
+# The list was byte-identical from v4.0.4 through v4.0.6 (and at the
+# omarchy-4.0.6 OMARCHY_COMMIT pin), so the 4.0.5/4.0.6 reconcile found no
+# member changes; the list moved on upstream master after v4.0.6
+# (untagged) and waits for the next release tag.
 #
 # Non-trivial mappings (arch name -> atom):
 #   bluez-utils -> net-wireless/bluez          (tools live in bluez here)
@@ -33,7 +38,7 @@
 EAPI=8
 
 DESCRIPTION="The Omarchy full-install package set (meta package)"
-HOMEPAGE="https://github.com/basecamp/omarchy"
+HOMEPAGE="https://github.com/omacom/omarchy"
 
 LICENSE="MIT"
 S="${WORKDIR}"
