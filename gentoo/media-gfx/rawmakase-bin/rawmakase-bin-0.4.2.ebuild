@@ -1,4 +1,4 @@
-# arch-pkgver: 0.4.1
+# arch-pkgver: 0.4.2
 # Ported from pkgbuilds/rawmakase-bin. The release tarball is a ready usr/
 # tree: a $ORIGIN-relative launcher in /usr/bin, the binary with bundled
 # LibRaw/lcms2/libjpeg/ONNX Runtime in /usr/lib/rawmakase, plus the desktop
