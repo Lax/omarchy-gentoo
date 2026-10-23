@@ -1,4 +1,4 @@
-# arch-pkgver: 3.27.6
+# arch-pkgver: 3.27.12
 # Ported from pkgbuilds/cursor-bin. Arch points Cursor at the system
 # electron42 package; Gentoo has no matching electron, so this ebuild keeps
 # the .deb's bundled electron and its own launcher instead of rewriting
@@ -12,7 +12,7 @@ HOMEPAGE="https://www.cursor.com"
 # Upstream's CDN path embeds the release directory commit; it rotates with
 # the production channel. sync-gentoo re-reads _commit from the PKGBUILD on
 # every bump (the 3.23.12-era rotation served 403s until that existed).
-_COMMIT=f7119520544accb8dcf6d27119b9f1963d8ee5ae
+_COMMIT=df132ffba90dfc15a12e6b8f020ba4e5d026c4be
 SRC_URI="https://downloads.cursor.com/production/${_COMMIT}/linux/x64/deb/amd64/deb/cursor_${PV}_amd64.deb -> ${P}.deb"
 
 S="${WORKDIR}"
