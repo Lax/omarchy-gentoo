@@ -468,7 +468,10 @@ jobs:
             "$GITHUB_WORKSPACE/overlay-repo/"
 
       - name: Commit and publish to omarchy-overlay
-        uses: stefanzweifel/git-auto-commit-action@v5
+        # v7 runs on Node 24 (v6 dropped skip_fetch/skip_checkout, v7
+        # restored both); v5 now only gets a forced Node 24 shim and
+        # annotates every run as deprecated.
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           # The publish target is a dedicated overlay repository whose tree
           # root IS the overlay users sync. --force overwrites whatever the
