@@ -4,6 +4,10 @@
 # .github/workflows/gentoo.yml and bin/ai-port --verify, which share this
 # script so local and CI verdicts cannot drift).
 #
+# Without arguments the whole overlay is resolved. --only <category/name>
+# (repeatable, fed by bin/gentoo-resolve-scope on push/dispatch runs)
+# restricts the pass to the named packages.
+#
 # Classification per package:
 #   exit 0                              -> ok
 #   "USE changes are necessary"         -> ok (a fixture/profile policy issue:
@@ -17,20 +21,85 @@ set -uo pipefail
 
 REPO=${OMARCHY_REPO:-/var/db/repos/omarchy}
 
-export FEATURES="-ipc-sandbox -network-sandbox -pid-sandbox -sandbox"
-export ACCEPT_LICENSE="* -@EULA"
-export ACCEPT_KEYWORDS="~amd64"
-export CONFIG_PROTECT="-*"
-export PATH="$PATH:/usr/sbin"
+self_test() {
+	# The subshell scopes the tmp cleanup trap; set -u would turn it into
+	# a failure once tmp is out of scope at script exit.
+	(
+	tmp=$(mktemp -d)
+	trap 'rm -rf "$tmp"' EXIT
+	mkdir -p "$tmp/repo/app/test" "$tmp/repo/other/pkg" "$tmp/repo/metadata/md5-cache"
+	echo 'EAPI=8' > "$tmp/repo/app/test/test-1.ebuild"
+	echo 'EAPI=8' > "$tmp/repo/other/pkg/pkg-1.ebuild"
+	# A fake emerge so no portage is needed; it answers ok to everything.
+	printf '#!/bin/bash\necho "fake emerge: $*"\nexit 0\n' > "$tmp/emerge"
+	chmod +x "$tmp/emerge"
+	env OMARCHY_RESOLVE_SKIP_MAKECONF=1 OMARCHY_REPO="$tmp/repo" \
+		PATH="$tmp:$PATH" "$0" --only app/test > "$tmp/out1"
+	grep -q '^ok   app/test$' "$tmp/out1" || { echo "self-test: --only did not resolve app/test" >&2; exit 1; }
+	if grep -q 'other/pkg' "$tmp/out1"; then
+		echo "self-test: --only leaked into other packages" >&2
+		exit 1
+	fi
+	if env OMARCHY_RESOLVE_SKIP_MAKECONF=1 OMARCHY_REPO="$tmp/repo" \
+		PATH="$tmp:$PATH" "$0" --only no/such >/dev/null 2>&1; then
+		echo "self-test: unknown atom accepted" >&2
+		exit 1
+	fi
+	env OMARCHY_RESOLVE_SKIP_MAKECONF=1 OMARCHY_REPO="$tmp/repo" \
+		PATH="$tmp:$PATH" "$0" > "$tmp/out2"
+	[[ $(grep -c '^ok' "$tmp/out2") -eq 2 ]] || { echo "self-test: bare run did not cover both packages" >&2; exit 1; }
+	echo "self-test ok"
+	)
+}
 
-# The overlay targets a graphical system; a bare stage3 profile is too spartan
-# for the desktop stack these packages pull in.
-grep -q 'USE=.*X' /etc/portage/make.conf 2>/dev/null ||
-	echo 'USE="${USE} X gtk"' >>/etc/portage/make.conf
+only=()
+while (($#)); do
+	case "$1" in
+	--only)
+		[[ -n "${2:-}" ]] || { echo "gentoo-resolve: --only needs an atom" >&2; exit 64; }
+		only+=("$2")
+		shift 2 ;;
+	--self-test)
+		self_test
+		exit $? ;;
+	*)
+		echo "gentoo-resolve: unknown argument: $1 (usage: gentoo-resolve [--only <category/name>]...)" >&2
+		exit 64 ;;
+	esac
+done
+
+# self_test re-invokes this script against a fixture; without this guard
+# that invocation would append to the real /etc/portage/make.conf.
+if [[ -z "${OMARCHY_RESOLVE_SKIP_MAKECONF:-}" ]]; then
+	export FEATURES="-ipc-sandbox -network-sandbox -pid-sandbox -sandbox"
+	export ACCEPT_LICENSE="* -@EULA"
+	export ACCEPT_KEYWORDS="~amd64"
+	export CONFIG_PROTECT="-*"
+	export PATH="$PATH:/usr/sbin"
+
+	# The overlay targets a graphical system; a bare stage3 profile is too spartan
+	# for the desktop stack these packages pull in.
+	grep -q 'USE=.*X' /etc/portage/make.conf 2>/dev/null ||
+		echo 'USE="${USE} X gtk"' >>/etc/portage/make.conf
+fi
+
+# Build the directory list: explicit --only atoms, or the whole tree.
+dirs=()
+if ((${#only[@]})); then
+	for atom in "${only[@]}"; do
+		dir="$REPO/$atom"
+		[[ -d "$dir" ]] || { echo "gentoo-resolve: no such overlay package: $atom" >&2; exit 66; }
+		dirs+=("$dir/")
+	done
+else
+	for dir in "$REPO"/*/*/; do
+		[[ -d "$dir" ]] && dirs+=("$dir")
+	done
+fi
 
 failures=0
 count=0
-for dir in "$REPO"/*/*/; do
+for dir in "${dirs[@]}"; do
 	atom=${dir#"$REPO"/}
 	atom=${atom%/}
 	case "$atom" in metadata/*) continue ;; esac

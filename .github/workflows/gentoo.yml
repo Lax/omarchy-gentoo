@@ -56,6 +56,10 @@ on:
         description: "Also run the smoke emerge (hours, self-hosted)"
         type: boolean
         default: false
+      resolve_atoms:
+        description: "Comma-separated category/name atoms to resolve (empty = whole tree)"
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -68,14 +72,21 @@ permissions:
 
 jobs:
   lint:
-    # Static validation of the overlay: pkgcheck and per-package emerge
-    # --pretend resolution inside a stock gentoo/stage3 container. The job
-    # runs on the host (checkout needs git for submodules; the stage3 image
-    # ships none) and drives the container through docker run - the same
-    # pattern upstream's test.yml uses for its Arch container. No distfiles
-    # are fetched here; the nightly job owns Manifest generation.
+    # Static validation of the overlay: pkgcheck over the whole tree plus
+    # per-package emerge --pretend resolution inside a stock gentoo/stage3
+    # container. Resolution is scoped by bin/gentoo-resolve-scope (see the
+    # Actions quota policy in AGENTS.md): pushes, PRs and upstream-sync
+    # dispatches resolve only the touched packages and their in-overlay
+    # reverse dependents; the whole-tree pass runs nightly in the smoke
+    # job. A manual dispatch without atoms resolves the whole tree. The
+    # job runs on the host (checkout needs git for submodules; the stage3
+    # image ships none) and drives the container through docker run - the
+    # same pattern upstream's test.yml uses for its Arch container. No
+    # distfiles are fetched here; the nightly job owns Manifest
+    # generation.
     if: github.event_name != 'schedule'
     runs-on: ubuntu-24.04
+    timeout-minutes: 90
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -83,11 +94,65 @@ jobs:
           persist-credentials: false
           submodules: recursive
 
-      - name: pkgcheck scan and resolve every package (stage3)
+      - name: Compute the resolve scope
+        id: scope
+        env:
+          HEAD_SHA: ${{ github.sha }}
+          BASE_REF: ${{ github.base_ref }}
+          ATOMS: ${{ inputs.resolve_atoms }}
+        run: |
+          set -eu
+          # Every fallthrough below ends at --full, never at a skipped
+          # resolve: a wasted full resolve costs minutes, a silently
+          # skipped gate costs a red nightly.
+          case "${{ github.event_name }}" in
+            push)
+              before='${{ github.event.before }}'
+              if [[ -n "$before" ]] && [[ ! "$before" =~ ^0+$ ]] \
+                && git fetch -q --no-tags origin "$before" \
+                && git merge-base --is-ancestor "$before" HEAD; then
+                bin/gentoo-resolve-scope --range "$before..$HEAD_SHA"
+              else
+                bin/gentoo-resolve-scope --full
+              fi ;;
+            pull_request)
+              git fetch -q --no-tags origin "$BASE_REF"
+              bin/gentoo-resolve-scope --range "origin/$BASE_REF...$HEAD_SHA" ;;
+            *)
+              if [[ -n "$ATOMS" ]]; then
+                bin/gentoo-resolve-scope --atoms "$ATOMS"
+              else
+                bin/gentoo-resolve-scope --full
+              fi ;;
+          esac > /tmp/scope.env
+          # The script emits only KEY=VALUE lines for this consumer.
+          . /tmp/scope.env
+          echo "resolve=${resolve:?scope script emitted no resolve line}" >> "$GITHUB_OUTPUT"
+          echo "args=${args:-}" >> "$GITHUB_OUTPUT"
+          cat /tmp/scope.env
+
+      - name: Date the pkgcheck cache
+        id: cache-week
+        run: echo "week=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore the pkgcheck cache
+        uses: actions/cache@v4
+        with:
+          path: pkgcheck-cache
+          key: pkgcheck-${{ runner.os }}-${{ steps.cache-week.outputs.week }}
+          restore-keys: pkgcheck-${{ runner.os }}-
+
+      - name: pkgcheck scan and resolve (stage3)
+        env:
+          RESOLVE_RUN: ${{ steps.scope.outputs.resolve }}
+          RESOLVE_ARGS: ${{ steps.scope.outputs.args }}
         run: |
           docker run --rm \
+            -e RESOLVE_RUN \
+            -e RESOLVE_ARGS \
             -v "$PWD/gentoo:/var/db/repos/omarchy" \
             -v "$PWD/bin/gentoo-resolve:/usr/local/bin/gentoo-resolve:ro" \
+            -v "$PWD/pkgcheck-cache:/tmp/pkgcheck-cache" \
             gentoo/stage3 bash -c '
               set -eu
               command -v getuto >/dev/null && getuto || true
@@ -98,7 +163,12 @@ jobs:
               printf "[omarchy]\nlocation = /var/db/repos/omarchy\nmasters = gentoo\nauto-sync = off\n" > /etc/portage/repos.conf/omarchy.conf
               emerge --quiet dev-util/pkgdev
               pkgcheck scan -k,-MissingManifest --cache-dir /tmp/pkgcheck-cache --verbose /var/db/repos/omarchy
-              gentoo-resolve
+              if [ "$RESOLVE_RUN" = "1" ]; then
+                echo "resolve scope: ${RESOLVE_ARGS:-whole tree}"
+                gentoo-resolve $RESOLVE_ARGS
+              else
+                echo "resolve skipped - nothing resolve-relevant changed"
+              fi
             '
 
   smoke-emerge:
@@ -125,7 +195,10 @@ jobs:
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.smoke)
     needs: [sync-check]
     runs-on: [self-hosted, omarchy-smoke]
-    timeout-minutes: 350
+    # The nightly also owns the whole-tree resolve pass (the lint job only
+    # resolves what a change touched), hence the headroom over the smoke
+    # build itself.
+    timeout-minutes: 420
     steps:
       - name: Reset workspace (stage3 writes root-owned md5-cache into the tree)
         run: sudo rm -rf "$GITHUB_WORKSPACE" && mkdir -p "$GITHUB_WORKSPACE"
@@ -136,18 +209,20 @@ jobs:
           persist-credentials: false
           submodules: recursive
 
-      - name: Manifest, digest-verify, and emerge the package of the day (stage3)
+      - name: Manifest, digest-verify, resolve, and emerge the package of the day (stage3)
         run: |
           # The host ::gentoo tree is kept current by the local emaint; the
           # run mounts it read-only so nothing depends on gemato's key
           # refresh, which needs keyserver/WKD reachability this site lacks.
           sudo emaint sync -r gentoo || true
-          mkdir -p /data/cache/omarchy-runner/distfiles /data/cache/omarchy-runner/binpkgs /data/cache/omarchy-runner/ccache
+          mkdir -p /data/cache/omarchy-runner/distfiles /data/cache/omarchy-runner/binpkgs /data/cache/omarchy-runner/ccache /data/cache/omarchy-runner/pkgcheck
           docker run --rm --network host \
             -v "$PWD/gentoo:/var/db/repos/omarchy" \
+            -v "$PWD/bin/gentoo-resolve:/usr/local/bin/gentoo-resolve:ro" \
             -v /data/cache/omarchy-runner/distfiles:/var/cache/distfiles \
             -v /data/cache/omarchy-runner/binpkgs:/var/cache/binpkgs \
             -v /data/cache/omarchy-runner/ccache:/var/cache/ccache \
+            -v /data/cache/omarchy-runner/pkgcheck:/tmp/pkgcheck-cache \
             -v /var/db/repos/gentoo:/var/db/repos/gentoo:ro \
             gentoo/stage3 bash -c '
               set -eu
@@ -198,6 +273,11 @@ jobs:
               cd /var/db/repos/omarchy
               pkgdev manifest --force
               pkgcheck scan --cache-dir /tmp/pkgcheck-cache --verbose /var/db/repos/omarchy
+              # Whole-tree resolve gate. Push and dispatch runs resolve only
+              # what they touched (bin/gentoo-resolve-scope); the nightly
+              # smoke owns the pass over all of them. The script exports
+              # its own portage knobs, so no extra env is needed.
+              gentoo-resolve
               mapfile -t atoms < <(
                 find /var/db/repos/omarchy -name "*.ebuild" -not -path "*/metadata/*" -printf "%h\n" \
                   | sort -u | sed "s|/var/db/repos/omarchy/||"
@@ -252,6 +332,7 @@ jobs:
     # nor node (so the JS checkout actions cannot run inside it either).
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -277,6 +358,7 @@ jobs:
     # and regenerating the board each time would only churn the issue.
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.smoke)
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -500,6 +582,7 @@ jobs:
         (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled'))
       }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - name: File a failure issue
         env:
@@ -545,6 +628,7 @@ jobs:
         needs.smoke-emerge.result == 'success'
       }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - name: Close the gates-failing issue
         env:

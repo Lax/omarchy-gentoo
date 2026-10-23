@@ -1,0 +1,278 @@
+#!/usr/bin/env bash
+# Resolve-scope calculator for the overlay gates. Decides which packages
+# gentoo-resolve must check for a given change set, so push, PR and
+# upstream-sync dispatch runs resolve only what the change can affect,
+# while the nightly smoke keeps owning the whole-tree pass (the quota
+# policy behind this lives in AGENTS.md and docs/actions-quota.md).
+#
+# Usage:
+#   bin/gentoo-resolve-scope --range <git-range>  changed paths from a diff
+#   bin/gentoo-resolve-scope --atoms "a/b,c/d"    atoms handed over by the
+#                                                 upstream-sync dispatch
+#   bin/gentoo-resolve-scope --full               whole-tree resolve
+#   bin/gentoo-resolve-scope --self-test
+#
+# Prints KEY=VALUE lines meant to be sourced by the caller:
+#   resolve=1|0    whether gentoo-resolve should run at all
+#   args=...       arguments for gentoo-resolve (empty -> whole tree)
+#
+# Rules, first match wins. Every ambiguity fails safe to the whole tree:
+# a wasted full resolve costs minutes, a silently skipped gate costs a
+# red nightly.
+#   gentoo/profiles/**           -> whole tree (tree-wide masks moved)
+#   bin/gentoo-resolve*          -> whole tree (the gate itself moved)
+#   .github/workflows/gentoo.yml -> whole tree (the gate definition moved)
+#   gentoo/<category>/<name>/**  -> those atoms plus their reverse
+#                                   dependents inside the overlay; the
+#                                   umbrella metapackages are excluded
+#                                   from the expansion because they
+#                                   depend on nearly everything and would
+#                                   turn every scoped run back into a
+#                                   full one (the nightly covers them)
+#   gentoo/metadata/**           -> skipped (generated cache)
+#   anything else (helpers, bin, omarchy-pkgs, docs)
+#                                -> resolve skipped; pkgcheck still scans
+#   more than OMARCHY_SCOPE_MAX atoms after expansion (default 20)
+#                                -> whole tree
+set -uo pipefail
+
+die() { echo "gentoo-resolve-scope: $*" >&2; exit 1; }
+
+# Umbrella metapackages: resolving one is resolving the desktop. They are
+# excluded from reverse-dependency expansion, not from the atom list
+# itself - when an umbrella's own ebuild changes, it is resolved as-is.
+umbrellas=(omarchy/omarchy omarchy/omarchy-base)
+
+# The overlay tree relative to the working directory; overridden by the
+# self-test so it never reads the real tree.
+tree=${OMARCHY_SCOPE_TREE:-gentoo}
+
+atom_re='^[[:alnum:]_+.-]+/[[:alnum:]_+.-]+$'
+
+changed_paths() {
+	git diff --name-only "$1" 2>/dev/null
+}
+
+# Overlay ebuilds naming the atom, mapped back to category/name dirs. The
+# atom may carry any version operator, suffix or slot, so the match is
+# boundary-checked around the name rather than a bare substring (which
+# would match cursor-bin inside not-cursor-bin). Works for deleted
+# packages too: only dependents remain in the tree to be found.
+reverse_deps() {
+	# Two statements on purpose: with set -u the whole local line expands
+	# before any of it assigns, so referencing atom on the same line that
+	# declares it dies with "unbound variable".
+	local atom=$1
+	local cat=${atom%%/*} pn=${atom#*/}
+	grep -rlE "(^|[^a-zA-Z0-9_-])${cat}/${pn}([^a-zA-Z0-9_-]|$)" \
+		"$tree" --include='*.ebuild' 2>/dev/null \
+		| cut -d/ -f2-3 | sort -u
+}
+
+# Appends category/name atoms to the atoms array, or sets full=1.
+classify_paths() {
+	local p rest
+	for p in $paths; do
+		case "$p" in
+			gentoo/profiles/*|bin/gentoo-resolve|bin/gentoo-resolve-scope|.github/workflows/gentoo.yml)
+				full=1
+				return ;;
+			gentoo/metadata/*) ;; # generated md5-cache, not resolve-relevant
+			gentoo/*/*/*)
+				rest=${p#gentoo/}
+				atoms+=("$(cut -d/ -f1-2 <<<"$rest")") ;;
+			gentoo/*) # eclass or top-level tree change: everything can move
+				full=1
+				return ;;
+			*) ;; # tooling, docs, submodule bookkeeping
+		esac
+	done
+}
+
+dedup() { # dedup <array-name> <elements...>
+	mapfile -t "$1" < <(printf '%s\n' "${@:2}" | sort -u)
+}
+
+emit() { # emit <resolve> <args>
+	echo "resolve=$1"
+	echo "args=$2"
+}
+
+main() {
+	local mode=$1 arg=${2:-}
+	local atoms=() expanded=() paths= full=0
+	local a rd rd_atom max=${OMARCHY_SCOPE_MAX:-20}
+
+	case "$mode" in
+		--full) emit 1 ""; return ;;
+		--range)
+			[[ -n "$arg" ]] || die "--range needs a git range argument"
+			paths=$(changed_paths "$arg") || full=1
+			if (( ! full )) && [[ -n "$paths" ]]; then
+				classify_paths
+			fi
+			if (( ! full )) && [[ -z "$paths" ]]; then
+				emit 0 "" # nothing changed at all
+				return
+			fi ;;
+		--atoms)
+			[[ -n "$arg" ]] || die "--atoms needs an atom list argument"
+			for a in ${arg//,/ }; do
+				if [[ ! "$a" =~ $atom_re || ! -d "$tree/$a" ]]; then
+					# A desynced dispatcher must not shrink the gate: fail
+					# safe to the whole tree (a deletion arriving via
+					# --atoms lands here too, and deletions deserve it).
+					echo "warning: unknown atom '$a'; resolving the whole tree" >&2
+					full=1
+					break
+				fi
+				atoms+=("$a")
+			done ;;
+		*) die "unknown mode: $mode" ;;
+	esac
+
+	(( full )) && { emit 1 ""; return; }
+	(( ${#atoms[@]} )) || { emit 0 ""; return; }
+
+	dedup atoms "${atoms[@]}"
+	for a in "${atoms[@]}"; do
+		expanded+=("$a")
+		# Umbrellas depend on nearly everything: never expand through one,
+		# and never pull one in as a dependent - resolving the umbrella is
+		# a full run in disguise, and the nightly already owns it.
+		case " ${umbrellas[*]} " in *" $a "*) continue ;; esac
+		mapfile -t rd < <(reverse_deps "$a")
+		for rd_atom in "${rd[@]}"; do
+			case " ${umbrellas[*]} " in *" $rd_atom "*) continue ;; esac
+			expanded+=("$rd_atom")
+		done
+	done
+	dedup expanded "${expanded[@]}"
+
+	# --range atoms whose directory no longer exists were deleted by this
+	# change; their dependents stay in the list, the dead atoms drop out.
+	# (--atoms already rejected dead atoms above.)
+	local live=()
+	for a in "${expanded[@]}"; do
+		[[ -d "$tree/$a" ]] && live+=("$a")
+	done
+
+	if (( ${#live[@]} == 0 )); then
+		emit 0 "" # a self-contained deletion nothing depends on
+		return
+	fi
+	if (( ${#live[@]} > max )); then
+		echo "warning: ${#live[@]} atoms exceed the scope budget of $max; resolving the whole tree" >&2
+		emit 1 ""
+		return
+	fi
+
+	local args=""
+	for a in "${live[@]}"; do
+		args+="--only $a "
+	done
+	emit 1 "${args% }"
+}
+
+self_test() {
+	# The subshell scopes the tmp cleanup trap: at script exit $tmp would
+	# already be out of scope and set -u would turn the trap into a
+	# failure (the same shape bin/gentoo-workflow-lint uses).
+	(
+	self=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
+	tmp=$(mktemp -d)
+	trap 'rm -rf "$tmp"' EXIT
+
+	# Fixture overlay: a/x is the change target, b/y depends on it, the
+	# omarchy umbrella depends on it too (and must stay out of the
+	# expansion), c/z is unrelated.
+	mkdir -p "$tmp/gentoo/a/x" "$tmp/gentoo/b/y" "$tmp/gentoo/omarchy/omarchy" \
+		"$tmp/gentoo/c/z" "$tmp/gentoo/metadata/md5-cache" "$tmp/gentoo/profiles" "$tmp/bin"
+	echo 'EAPI=8' > "$tmp/gentoo/a/x/a_x-1.ebuild"
+	echo 'RDEPEND="a/x"' > "$tmp/gentoo/b/y/b_y-1.ebuild"
+	echo 'RDEPEND="a/x"' > "$tmp/gentoo/omarchy/omarchy/om-1.ebuild"
+	echo 'EAPI=8' > "$tmp/gentoo/c/z/c_z-1.ebuild"
+	echo x > "$tmp/gentoo/profiles/repo_name"
+	echo x > "$tmp/bin/tool"
+	git -C "$tmp" init -q
+	git -C "$tmp" add -A
+	git -C "$tmp" -c user.email=t@t -c user.name=t commit -qm base
+
+	t_failures=0
+	check() { # check <name> <got> <want>
+		if [[ "$2" == "$3" ]]; then
+			echo "ok   $1"
+		else
+			echo "FAIL $1: got [$2], want [$3]"
+			((++t_failures))
+		fi
+	}
+
+	# A changed package expands to itself + dependents, not the umbrella.
+	echo 'EAPI=8' > "$tmp/gentoo/a/x/a_x-2.ebuild"
+	git -C "$tmp" add -A
+	git -C "$tmp" -c user.email=t@t -c user.name=t commit -qm bump
+	out=$(cd "$tmp" && OMARCHY_SCOPE_TREE=gentoo "$self" --range HEAD~1..HEAD)
+	check "range expansion" "$out" "$(printf 'resolve=1\nargs=--only a/x --only b/y')"
+
+	# Umbrella change resolves as itself only.
+	echo 'EAPI=8' > "$tmp/gentoo/omarchy/omarchy/om-2.ebuild"
+	git -C "$tmp" add -A
+	git -C "$tmp" -c user.email=t@t -c user.name=t commit -qm umbrella
+	out=$(cd "$tmp" && OMARCHY_SCOPE_TREE=gentoo "$self" --range HEAD~1..HEAD)
+	check "umbrella atom" "$out" "$(printf 'resolve=1\nargs=--only omarchy/omarchy')"
+
+	# Tooling-only change skips resolve entirely.
+	echo y > "$tmp/bin/tool"
+	git -C "$tmp" add -A
+	git -C "$tmp" -c user.email=t@t -c user.name=t commit -qm tooling
+	out=$(cd "$tmp" && OMARCHY_SCOPE_TREE=gentoo "$self" --range HEAD~1..HEAD)
+	check "tooling skip" "$out" "$(printf 'resolve=0\nargs=')"
+
+	# A profiles touch always means the whole tree.
+	echo z > "$tmp/gentoo/profiles/repo_name"
+	git -C "$tmp" add -A
+	git -C "$tmp" -c user.email=t@t -c user.name=t commit -qm profiles
+	out=$(cd "$tmp" && OMARCHY_SCOPE_TREE=gentoo "$self" --range HEAD~1..HEAD)
+	check "profiles full" "$out" "$(printf 'resolve=1\nargs=')"
+
+	# Explicit full mode.
+	out=$(cd "$tmp" && OMARCHY_SCOPE_TREE=gentoo "$self" --full)
+	check "explicit full" "$out" "$(printf 'resolve=1\nargs=')"
+
+	# A bogus range fails safe to the whole tree.
+	out=$(cd "$tmp" && OMARCHY_SCOPE_TREE=gentoo "$self" --range nosuchref..HEAD)
+	check "bogus range full" "$out" "$(printf 'resolve=1\nargs=')"
+
+	# Dispatch-shaped atom lists: commas split, dependents join.
+	out=$(cd "$tmp" && OMARCHY_SCOPE_TREE=gentoo "$self" --atoms "c/z,a/x")
+	check "atoms comma" "$out" "$(printf 'resolve=1\nargs=--only a/x --only b/y --only c/z')"
+
+	# An unknown atom fails safe to the whole tree instead of shrinking
+	# the gate.
+	out=$(cd "$tmp" && OMARCHY_SCOPE_TREE=gentoo "$self" --atoms "no/such")
+	check "unknown atom" "$out" "$(printf 'resolve=1\nargs=')"
+
+	# The scope budget turns an explosion back into a full run.
+	out=$(cd "$tmp" && OMARCHY_SCOPE_MAX=1 OMARCHY_SCOPE_TREE=gentoo "$self" --atoms "a/x")
+	check "budget full" "$out" "$(printf 'resolve=1\nargs=')"
+
+	# A package deleted with no dependents left behind resolves nothing.
+	git -C "$tmp" rm -q -r gentoo/c/z
+	git -C "$tmp" -c user.email=t@t -c user.name=t commit -qm drop
+	out=$(cd "$tmp" && OMARCHY_SCOPE_TREE=gentoo "$self" --range HEAD~1..HEAD)
+	check "self-contained deletion" "$out" "$(printf 'resolve=0\nargs=')"
+
+	if (( t_failures )); then
+		echo "self-test: $t_failures failure(s)" >&2
+		exit 1
+	fi
+	echo "self-test ok"
+	)
+}
+
+case "${1:-}" in
+--range|--atoms|--full) main "$@" ;;
+--self-test) self_test ;;
+*) die "usage: gentoo-resolve-scope --range <git-range> | --atoms <list> | --full | --self-test" ;;
+esac

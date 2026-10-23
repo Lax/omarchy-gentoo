@@ -78,6 +78,16 @@ jobs:
             echo "nothing to reconcile"
             exit 0
           fi
+          # Scope the lint resolve to what this bump can affect: the
+          # category/name dirs of the ebuilds it touched, captured now -
+          # once the commit lands the cached diff is empty. Empty means
+          # the commit moves only bookkeeping, and the dispatch then
+          # resolves the whole tree - the honest check for a tables-only
+          # change. No ebuild matches must not kill the step under
+          # set -eu/pipes.
+          atoms=$(git diff --cached --name-only -- gentoo/ \
+            | { grep -E '\.ebuild$' || true; } \
+            | cut -d/ -f2-3 | sort -u | paste -sd, -)
           if [[ "$pinned" != "$tip" ]]; then
             git commit --quiet -m "upstream: bump pin to $(git -C omarchy-pkgs rev-parse --short HEAD), reconcile ebuilds"
           else
@@ -89,11 +99,13 @@ jobs:
           # the overlay gates would never see this bump until the nightly.
           # Dispatch them now (needs actions:write); fail loud - a silent
           # dispatch failure would strand the bump ungated and unpublished.
+          payload=$(jq -cn --arg ref master --arg atoms "$atoms" \
+            '{ref: $ref, inputs: {smoke: false, resolve_atoms: $atoms}}')
           status=$(curl -sS -o /tmp/dispatch.out -w "%{http_code}" -X POST \
             -H "Authorization: Bearer ${GH_TOKEN}" \
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/gentoo.yml/dispatches" \
-            -d '{"ref":"master"}')
+            -d "$payload")
           case "$status" in
             2*) echo "gentoo.yml dispatched" ;;
             *) echo "dispatching gentoo.yml failed (${status}): $(cat /tmp/dispatch.out)"; exit 1 ;;

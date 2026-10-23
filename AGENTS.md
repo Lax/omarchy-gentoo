@@ -143,13 +143,20 @@ break the next sync with code 128; recover with `chown -R portage:portage` +
 
 ## The gates (what CI runs)
 
-- `gentoo-tooling.yml`: the self-tests above, mapping-table/overlay
+- `gentoo-tooling.yml`: the self-tests above (including
+  `bin/gentoo-resolve --self-test` and
+  `bin/gentoo-resolve-scope --self-test`), mapping-table/overlay
   consistency, baseline markers present on every ebuild.
-- `gentoo.yml` → `lint`: `pkgcheck scan` (Manifest check excluded — CI
-  generates Manifests) and per-package resolution via `bin/gentoo-resolve`
-  inside a stock gentoo/stage3 container, repo-owned tooling only.
+- `gentoo.yml` → `lint`: `pkgcheck scan` over the tree (Manifest check
+  excluded — CI generates Manifests) plus `bin/gentoo-resolve` inside a
+  stock gentoo/stage3 container, repo-owned tooling only. The resolve
+  pass is scoped by `bin/gentoo-resolve-scope`: pushes, PRs and
+  upstream-sync dispatches resolve only the touched packages and their
+  in-overlay reverse dependents; upstream-sync passes the atoms it
+  bumped via the `resolve_atoms` dispatch input.
 - `gentoo.yml` → nightly: `sync-check` (drift) gates the smoke emerge (a
-  real build of one rotating package on the self-hosted runner); the
+  real build of one rotating package on the self-hosted runner, plus the
+  whole-tree resolve pass the lint job no longer pays for); the
   mirror (publishes to Lax/omarchy-overlay) runs on push; issue filing on
   failure.
 
@@ -157,3 +164,25 @@ If a gate fails on master, the automation files a GitHub issue
 (`gentoo-overlay` label). Fix the issue, push, and the nightly loop
 confirms the fix. Humans review what automation cannot judge; agents and
 gates do the rest.
+
+## Actions quota policy
+
+Both repositories are public, so GitHub-hosted standard-runner minutes
+are free and unmetered, and self-hosted jobs never bill. The policy
+keeps it that way and keeps cloud usage small enough to survive the day
+either repo goes private (the Pro plan's 3,000 min/month applies to
+private repos only):
+
+- Cloud jobs carry lightweight orchestration only: pkgcheck, resolution
+  scoped to the touched packages (`bin/gentoo-resolve-scope`), issue
+  bookkeeping, dispatches. Anything that compiles or resolves the whole
+  tree belongs on the self-hosted runner — the nightly smoke owns the
+  full-tree resolve.
+- Every cloud job sets `timeout-minutes`; a hung job is wasted quota.
+- No artifacts today. If one is ever added, `retention-days` must be ≤ 7.
+- No larger runners, no macOS/Windows runners.
+- The monthly quota check automation re-verifies repository visibility,
+  artifacts and runner labels against this list; any billed Actions
+  minute is a regression.
+- The degradation runbook (what moves where when the free tier
+  disappears) is `docs/actions-quota.md`.
