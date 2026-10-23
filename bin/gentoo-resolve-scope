@@ -94,8 +94,13 @@ dedup() { # dedup <array-name> <elements...>
 }
 
 emit() { # emit <resolve> <args>
+	# args carries spaces (--only a/b --only c/d), so the value must be
+	# quoted or a sourcing consumer executes its first word as a command
+	# (exit 127 - caught live by the first atoms dispatch, 2026-10-23).
+	# Atom names are validated against [[:alnum:]_+.-], never containing
+	# a quote, so single-quoting is exact.
 	echo "resolve=$1"
-	echo "args=$2"
+	echo "args='$2'"
 }
 
 main() {
@@ -207,61 +212,78 @@ self_test() {
 			((++t_failures))
 		fi
 	}
+	# The workflow consumes the output with `. /tmp/scope.env`; a value
+	# with spaces must survive that as a variable, not become a command.
+	# This is the regression check for the 2026-10-23 exit-127 dispatch.
+	sourceable() {
+		bash -c '. /dev/stdin; [[ "${resolve:-x}" == [01] && -v args ]]' <<<"$1"
+	}
+	scheck() { # scheck <name> <got>
+		if sourceable "$2"; then
+			echo "ok   $1 (sourceable)"
+		else
+			echo "FAIL $1: output does not source cleanly"
+			((++t_failures))
+		fi
+	}
 
 	# A changed package expands to itself + dependents, not the umbrella.
 	echo 'EAPI=8' > "$tmp/gentoo/a/x/a_x-2.ebuild"
 	git -C "$tmp" add -A
 	git -C "$tmp" -c user.email=t@t -c user.name=t commit -qm bump
 	out=$(cd "$tmp" && OMARCHY_SCOPE_TREE=gentoo "$self" --range HEAD~1..HEAD)
-	check "range expansion" "$out" "$(printf 'resolve=1\nargs=--only a/x --only b/y')"
+	check "range expansion" "$out" "$(printf "resolve=1\nargs='--only a/x --only b/y'")"
+	scheck "range sourceable" "$out"
 
 	# Umbrella change resolves as itself only.
 	echo 'EAPI=8' > "$tmp/gentoo/omarchy/omarchy/om-2.ebuild"
 	git -C "$tmp" add -A
 	git -C "$tmp" -c user.email=t@t -c user.name=t commit -qm umbrella
 	out=$(cd "$tmp" && OMARCHY_SCOPE_TREE=gentoo "$self" --range HEAD~1..HEAD)
-	check "umbrella atom" "$out" "$(printf 'resolve=1\nargs=--only omarchy/omarchy')"
+	check "umbrella atom" "$out" "$(printf "resolve=1\nargs='--only omarchy/omarchy'")"
+	scheck "umbrella sourceable" "$out"
 
 	# Tooling-only change skips resolve entirely.
 	echo y > "$tmp/bin/tool"
 	git -C "$tmp" add -A
 	git -C "$tmp" -c user.email=t@t -c user.name=t commit -qm tooling
 	out=$(cd "$tmp" && OMARCHY_SCOPE_TREE=gentoo "$self" --range HEAD~1..HEAD)
-	check "tooling skip" "$out" "$(printf 'resolve=0\nargs=')"
+	check "tooling skip" "$out" "$(printf "resolve=0\nargs=''")"
 
 	# A profiles touch always means the whole tree.
 	echo z > "$tmp/gentoo/profiles/repo_name"
 	git -C "$tmp" add -A
 	git -C "$tmp" -c user.email=t@t -c user.name=t commit -qm profiles
 	out=$(cd "$tmp" && OMARCHY_SCOPE_TREE=gentoo "$self" --range HEAD~1..HEAD)
-	check "profiles full" "$out" "$(printf 'resolve=1\nargs=')"
+	check "profiles full" "$out" "$(printf "resolve=1\nargs=''")"
 
 	# Explicit full mode.
 	out=$(cd "$tmp" && OMARCHY_SCOPE_TREE=gentoo "$self" --full)
-	check "explicit full" "$out" "$(printf 'resolve=1\nargs=')"
+	check "explicit full" "$out" "$(printf "resolve=1\nargs=''")"
 
 	# A bogus range fails safe to the whole tree.
 	out=$(cd "$tmp" && OMARCHY_SCOPE_TREE=gentoo "$self" --range nosuchref..HEAD)
-	check "bogus range full" "$out" "$(printf 'resolve=1\nargs=')"
+	check "bogus range full" "$out" "$(printf "resolve=1\nargs=''")"
 
 	# Dispatch-shaped atom lists: commas split, dependents join.
 	out=$(cd "$tmp" && OMARCHY_SCOPE_TREE=gentoo "$self" --atoms "c/z,a/x")
-	check "atoms comma" "$out" "$(printf 'resolve=1\nargs=--only a/x --only b/y --only c/z')"
+	check "atoms comma" "$out" "$(printf "resolve=1\nargs='--only a/x --only b/y --only c/z'")"
+	scheck "atoms sourceable" "$out"
 
 	# An unknown atom fails safe to the whole tree instead of shrinking
 	# the gate.
 	out=$(cd "$tmp" && OMARCHY_SCOPE_TREE=gentoo "$self" --atoms "no/such")
-	check "unknown atom" "$out" "$(printf 'resolve=1\nargs=')"
+	check "unknown atom" "$out" "$(printf "resolve=1\nargs=''")"
 
 	# The scope budget turns an explosion back into a full run.
 	out=$(cd "$tmp" && OMARCHY_SCOPE_MAX=1 OMARCHY_SCOPE_TREE=gentoo "$self" --atoms "a/x")
-	check "budget full" "$out" "$(printf 'resolve=1\nargs=')"
+	check "budget full" "$out" "$(printf "resolve=1\nargs=''")"
 
 	# A package deleted with no dependents left behind resolves nothing.
 	git -C "$tmp" rm -q -r gentoo/c/z
 	git -C "$tmp" -c user.email=t@t -c user.name=t commit -qm drop
 	out=$(cd "$tmp" && OMARCHY_SCOPE_TREE=gentoo "$self" --range HEAD~1..HEAD)
-	check "self-contained deletion" "$out" "$(printf 'resolve=0\nargs=')"
+	check "self-contained deletion" "$out" "$(printf "resolve=0\nargs=''")"
 
 	if (( t_failures )); then
 		echo "self-test: $t_failures failure(s)" >&2
