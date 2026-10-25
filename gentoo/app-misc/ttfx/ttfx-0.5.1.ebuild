@@ -1,4 +1,4 @@
-# arch-pkgver: 0.5.0
+# arch-pkgver: 0.5.1
 # Ported from pkgbuilds/ttfx.
 EAPI=8
 
