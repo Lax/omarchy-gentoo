@@ -20,7 +20,7 @@ KEYWORDS="~amd64 ~arm64"
 
 RDEPEND="
 	app-crypt/gnupg
-	dev-libs/libsecret
+	app-crypt/libsecret
 	dev-libs/nss
 	media-libs/alsa-lib
 	sys-process/lsof
