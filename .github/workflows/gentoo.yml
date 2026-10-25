@@ -209,6 +209,9 @@ jobs:
           persist-credentials: false
           submodules: recursive
 
+      - name: Remove stale smoke containers (a cancelled run leaves its stage3 up)
+        run: docker ps -aq --filter label=omarchy-smoke | xargs -r docker rm -f
+
       - name: Manifest, digest-verify, resolve, and emerge the package of the day (stage3)
         run: |
           # The host ::gentoo tree is kept current by the local emaint; the
@@ -216,7 +219,10 @@ jobs:
           # refresh, which needs keyserver/WKD reachability this site lacks.
           sudo emaint sync -r gentoo || true
           mkdir -p /data/cache/omarchy-runner/distfiles /data/cache/omarchy-runner/binpkgs /data/cache/omarchy-runner/ccache /data/cache/omarchy-runner/pkgcheck
-          docker run --rm --network host \
+          # The label is how the cleanup steps find this container even when
+          # the runner died before the docker client could reap it (--rm only
+          # fires when the daemon itself stops the container).
+          docker run --rm --network host --label omarchy-smoke \
             -v "$PWD/gentoo:/var/db/repos/omarchy" \
             -v "$PWD/bin/gentoo-resolve:/usr/local/bin/gentoo-resolve:ro" \
             -v /data/cache/omarchy-runner/distfiles:/var/cache/distfiles \
@@ -321,6 +327,10 @@ jobs:
               # by the runner user on the next job.
               rm -rf /var/db/repos/omarchy/metadata/md5-cache
             '
+
+      - name: Remove this run stage3 container on any exit
+        if: always()
+        run: docker ps -aq --filter label=omarchy-smoke | xargs -r docker rm -f
 
   sync-check:
     # Ebuild drift from the Arch recipes: upstream's automation bumps
