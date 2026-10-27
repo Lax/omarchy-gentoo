@@ -22,3 +22,4 @@ qcom-firmware-extract	arch-only	copies vendor-signed Qualcomm Snapdragon firmwar
 alsa-ucm-conf-aurora	arch-only	Aurora (Apple Silicon/Asahi) ALSA UCM profiles: the content targets Apple Silicon audio hardware the amd64-only overlay never names; reconsider if the overlay ever ships aarch64
 aurora-audio	arch-only	Aurora (Apple Silicon/Asahi) PipeWire/WirePlumber DSP profiles: same target-hardware reasoning as alsa-ucm-conf-aurora
 ghost	blocked	hard-depends on wtype, removed from the ::gentoo 2026 tree and not in omarchy-pkgs; porting wtype into the overlay would unblock it (its remaining closure - bun-bin, hyprland, quickshell, dev-qt/qt5compat - is covered)
+bin	herdr	skipped: vendors libghostty-vt whose zig build fetches zig packages at build time; zig 0.16 fetch cannot seed its cache from local tarballs on this tree and its HTTP client fails through the sandbox/proxy - needs a zig path-dependency vendoring rework, revisit after upstream zig/distro guidance
