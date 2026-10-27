@@ -29,7 +29,7 @@ KEYWORDS="~amd64 ~arm64"
 
 RDEPEND="
 	dev-libs/wayland
-	gui-libs/xdg-desktop-portal
+	sys-apps/xdg-desktop-portal
 	media-libs/fontconfig
 	media-libs/libglvnd
 	media-libs/vulkan-loader

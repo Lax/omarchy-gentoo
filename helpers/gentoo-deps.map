@@ -195,7 +195,7 @@ xcb-util-image				x11-libs/xcb-util-image
 xcb-util-keysyms				x11-libs/xcb-util-keysyms
 xcb-util-renderutil				x11-libs/xcb-util-renderutil
 xcb-util-wm					x11-libs/xcb-util-wm
-xdg-desktop-portal			gui-libs/xdg-desktop-portal
+xdg-desktop-portal			sys-apps/xdg-desktop-portal
 xdg-desktop-portal-hyprland	gui-libs/xdg-desktop-portal-hyprland
 xdg-terminal-exec		x11-misc/xdg-terminal-exec
 xdg-user-dirs				x11-misc/xdg-user-dirs
