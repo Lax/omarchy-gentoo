@@ -28,6 +28,7 @@ strsim@0.11.1
 syn@3.0.3
 terminal_size@0.4.4
 unicode-ident@1.0.24
+unicode-width@0.2.2
 utf8parse@0.2.2
 windows-link@0.2.1
 windows-sys@0.61.2
