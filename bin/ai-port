@@ -140,6 +140,12 @@ at the bottom and they are the same ones CI runs.
    existing gentoo/*/metadata.xml), plus <upstream> remote-ids when known.
 8. Update helpers/gentoo-packages.tsv (and gentoo-skip.tsv when you skip a
    package) as part of the change.
+9. Rust packages (inherit cargo): the CRATES list must cover every
+   [[package]] in the source tarball's Cargo.lock except the package
+   itself. A missing crate passes every gate and only dies at compile
+   time on a real machine; diff with:
+     tar -xOf <source.tar.gz> */Cargo.lock |
+       awk -F'"' '/^name = /{n=\$2} /^version = /{print n"@"\$2}'
 
 ## Target locations
 
@@ -169,6 +175,7 @@ $(grep -v '^#' "$BUILD_ROOT/helpers/gentoo-deps.map" | grep . || echo "(empty)")
       without docker: SRC_URI entries are pinned, KEYWORDS match the Arch
       arch=() set, and every dependency is mapped or justified
 - [ ] helpers/gentoo-packages.tsv contains $package
+- [ ] cargo ebuilds: CRATES covers every Cargo.lock [[package]] (rule 9)
 - [ ] No Manifest committed
 
 ## Verify (run these; fix what they flag)
