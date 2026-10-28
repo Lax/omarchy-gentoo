@@ -1,4 +1,4 @@
-# arch-pkgver: 2026.10.19
+# arch-pkgver: 2026.10.20
 # Ported from pkgbuilds/mise-bin.
 EAPI=8
 
