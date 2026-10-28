@@ -171,7 +171,7 @@ RDEPEND="
 	net-misc/localsend-bin
 	net-wireless/bluez
 	sys-apps/gnome-disk-utility
-	x11-misc/sddm
+	gui-apps/sddm
 	x11-misc/xdg-terminal-exec
 	x11-themes/gnome-themes-standard
 "

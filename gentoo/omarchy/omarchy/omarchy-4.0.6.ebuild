@@ -62,7 +62,7 @@ RDEPEND="
 	media-video/pipewire
 	media-video/wireplumber
 	net-misc/networkmanager
-	x11-misc/sddm
+	gui-apps/sddm
 "
 
 # bin/ scripts re-authored for portage (pacman/yay are Arch-only).

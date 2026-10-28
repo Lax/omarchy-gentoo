@@ -13,7 +13,7 @@ SLOT="0"
 KEYWORDS="~amd64"
 
 RDEPEND="
-	app-shells/which
+	sys-apps/which
 	x11-libs/gtk+:3
 "
 BDEPEND="app-arch/libarchive"

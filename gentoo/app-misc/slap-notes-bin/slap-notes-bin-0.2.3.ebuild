@@ -21,9 +21,9 @@ RDEPEND="
 	dev-libs/nspr
 	dev-libs/nss
 	media-libs/alsa-lib
-	media-libs/libdrm
-	media-libs/libnotify
-	media-libs/libsecret
+	x11-libs/libdrm
+	x11-libs/libnotify
+	app-crypt/libsecret
 	media-libs/mesa
 	net-print/cups
 	sys-apps/dbus

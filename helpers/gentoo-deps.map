@@ -170,7 +170,7 @@ quickshell				gui-apps/quickshell
 retroarch				MANUAL:this tree does not package RetroArch (data packages install standalone)
 ripgrep					sys-apps/ripgrep
 ruby					dev-lang/ruby
-sddm					x11-misc/sddm
+sddm					gui-apps/sddm
 shared-mime-info				x11-misc/shared-mime-info
 starship				app-shells/starship
 sudo					app-admin/sudo
