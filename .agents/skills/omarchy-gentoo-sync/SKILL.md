@@ -129,6 +129,18 @@ Classification logic lives in `bin/ai-port` (`package_class`) — trust it:
   the automation renames the ebuild but cannot build the tarball, so the
   mirror's Manifest step 404s until it is uploaded (see the recipe in the
   elephant ebuild header).
+- **Migrations are a follow-up surface**: after the package update,
+  `omarchy-migrate` runs pending `migrations/<id>.sh` scripts and the first
+  failure kills the whole `omarchy update` (`set -e`). A migration calling
+  `omarchy-pkg-add` needs the Gentoo atom to exist and be installable, so
+  when upstream ships new packages the backlog has not queued yet, expect
+  the workstation update to die on them (omacalc/herdr, 2026-10). Dispositions:
+  port the package; unmask a guru `~amd64` provider via
+  `/etc/portage/package.accept_keywords/<name>`; or, when the migration does
+  not apply to the machine at all (Arch `linux-omarchy` kernel + Limine
+  edits, herdr's network-fetching zig build), mark it done machine-locally:
+  `touch /var/lib/omarchy/migrations/<id>`. Skipped-for-cause packages still
+  get a `gentoo-skip.tsv` row documenting the blocker.
 
 ## Step 6 — Gates
 
@@ -180,6 +192,24 @@ Gate classifications to read correctly:
 - `FAIL` on a package you didn't touch — investigate before assuming it's
   yours; check CI (`gh run list --workflow gentoo.yml`) for master parity.
 
+Known gate blindness: **the resolve pass never checks that an atom exists**.
+A dependency naming a package that is in no configured repo passes CI green
+and only dies on a real emerge (2026-10: `x11-misc/sddm` in omarchy-base,
+`gui-libs/xdg-desktop-portal` in three ebuilds — both stale after the tree
+moved the packages). After any upstream sync that smells like a tree
+reorganization, sweep by hand:
+
+    grep -rhoE '\b[a-z0-9]+(-[a-z0-9]+)+/[A-Za-z0-9+_][A-Za-z0-9+_.-]*' \
+      gentoo/*/*/*.ebuild helpers/gentoo-deps.map | sort -u
+
+then check each `cat/pn` against `/var/db/repos/*/<cat>/<pn>` and
+`gentoo/<cat>/<pn>`. Expect ~60 URL/path fragments in the output
+(`releases/`, `squashfs-root/`, `github.com/...`) — only real
+category/package shapes are hits. Moves recorded 2026-10: `sddm` →
+`gui-apps`, `xdg-desktop-portal` → `sys-apps`, `libdrm` → `x11-libs`,
+`libnotify` → `x11-libs`, `libsecret` → `app-crypt`, `which` → `sys-apps`.
+Fix `helpers/gentoo-deps.map` rows in the same change; they go stale too.
+
 ## Step 7 — Commit and push
 
 - Two commits, matching repo style (terse, lowercase, area-prefixed):
@@ -206,6 +236,37 @@ End with: submodule `old → new`; drift status; adds/deletes/renames and what
 was done with each; ports/skips/tooling changes made; gate results; backlog
 (`bin/ai-port --list-open` OPEN items); CI status. In Chinese when the user
 writes Chinese.
+
+## Machine ops — running omarchy update for the user
+
+The workstation's `omarchy update` is a user-facing wrapper that agents are
+sometimes asked to debug. Traps hit on 2026-10-27/28, in order of appearance:
+
+- It needs `OMARCHY_PATH=/usr/share/omarchy` forwarded
+  (`sudo env OMARCHY_PATH=/usr/share/omarchy omarchy update -y`): the var is
+  set by the graphical session only, and `omarchy-update-dev` dies on the
+  unbound variable otherwise.
+- **Every sudo run leaves root-owned `/tmp/omarchy-update.log` and
+  `/tmp/omarchy-update.lock`**; sticky-bit /tmp then breaks the user's own
+  next run (`script: cannot open ...: Permission denied`, then a dead lock).
+  The update flow is over only after
+  `sudo rm -f /tmp/omarchy-update.log /tmp/omarchy-update.lock`.
+- Unattended (`-y`) does not cover everything: mise's config-trust question
+  and the final gum "Reboot?" confirm both hang. Kill the run at the reboot
+  prompt — never answer it on the user's behalf. Trust is recorded once via
+  `sudo mise trust <config path>` (entries are symlinks under
+  `<home>/.local/state/mise/trusted-configs/`; mise refuses to create them
+  if a stale file occupies that path). Fresh npm releases additionally need
+  `allow_low_downloads = true` on the tool entry in the user's
+  mise config, and sit behind a 24h `minimum_release_age` after which the
+  upgrade attempt resumes — pin the tool version in that config to ride out
+  a flaky download window.
+- Migration failures surface here too (see Step 5); a dead atom in any
+  scheduled-to-merge ebuild (omarchy-base) aborts emerge with "no ebuilds to
+  satisfy" and a spurious "run emaint --check world" hint.
+- `pkill -f <pattern>` matches your own `bash -c` command line: bracket one
+  character (`pkill -f "omarchy-updat[e]"`) and never mention the plain
+  string anywhere else in the same command — including a log path.
 
 ## Tooling and skill maintenance
 
