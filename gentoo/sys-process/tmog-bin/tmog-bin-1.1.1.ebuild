@@ -1,4 +1,4 @@
-# arch-pkgver: 1.1.0
+# arch-pkgver: 1.1.1
 # Ported from pkgbuilds/tmog-bin. Repackages the vendor's Qt-linked tarball
 # (8 MB against the system Qt) rather than the bundled-Qt AppImage.
 EAPI=8
