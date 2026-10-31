@@ -1,4 +1,4 @@
-# arch-pkgver: 0.2.3
+# arch-pkgver: 0.2.5
 # Ported from pkgbuilds/slap-notes-bin. Slap Notes publishes a plain Electron
 # tree rather than an AppImage, so this repackages the vendor tarball as-is.
 EAPI=8
