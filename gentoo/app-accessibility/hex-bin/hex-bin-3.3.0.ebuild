@@ -1,4 +1,4 @@
-# arch-pkgver: 3.0.0
+# arch-pkgver: 3.3.0
 # Ported from pkgbuilds/hex-bin. The Hex voice dictation app by Anomaly,
 # not a prebuilt of extra/hex (the hex dump tool installs /usr/bin/hx), so
 # no provider or blocker relationship exists with it.
