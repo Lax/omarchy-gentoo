@@ -192,12 +192,23 @@ Gate classifications to read correctly:
 - `FAIL` on a package you didn't touch — investigate before assuming it's
   yours; check CI (`gh run list --workflow gentoo.yml`) for master parity.
 
-Known gate blindness: **the resolve pass never checks that an atom exists**.
-A dependency naming a package that is in no configured repo passes CI green
-and only dies on a real emerge (2026-10: `x11-misc/sddm` in omarchy-base,
-`gui-libs/xdg-desktop-portal` in three ebuilds — both stale after the tree
-moved the packages). After any upstream sync that smells like a tree
-reorganization, sweep by hand:
+Dead atoms (2026-10 sddm/xdg-desktop-portal incidents): since 2026-11 the
+resolve pass verifies that every dep atom's `category/pn` exists in a repo
+the gate can see (`/var/db/repos/*`), reading the md5-cache dep fields that
+`egencache --repo omarchy --update` (run by the script itself) generates —
+an any-of group fails only when every member is dead, and the verdict is
+`FAIL <atom> (dead dependency atom(s): ...)`. Atoms real machines get from a
+third-party overlay are allowlisted in `bin/gentoo-provider-atoms.tsv`
+(currently hyproverlay's `gui-wm/hyprland` and
+`gui-libs/xdg-desktop-portal-hyprland`); gentoo.yml and docker-gates.sh
+mount that file next to the script, so a new entry needs both mounts to
+already exist — they do, keep them in sync. Two traps: a user emerge never
+populates md5-cache (only egencache does), and docker single-file binds pin
+the inode — a gate run started before an edit to `bin/gentoo-resolve` runs
+the old script, so restart the container after editing any mounted file. A
+"metadata missing; atom existence unchecked" note means the cache was not
+generated — investigate rather than ignoring it. When the check itself needs
+debugging, the old manual sweep still works:
 
     grep -rhoE '\b[a-z0-9]+(-[a-z0-9]+)+/[A-Za-z0-9+_][A-Za-z0-9+_.-]*' \
       gentoo/*/*/*.ebuild helpers/gentoo-deps.map | sort -u

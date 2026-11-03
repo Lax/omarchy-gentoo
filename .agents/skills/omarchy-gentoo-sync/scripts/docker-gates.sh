@@ -81,17 +81,20 @@ scan_target=/var/db/repos/omarchy
 [[ $mode == scope ]] && scan_target="/var/db/repos/omarchy/$target"
 
 echo "== pkgcheck $( [[ $mode == scope ]] && echo "on $target" || echo "on the overlay" ) + full resolve loop =="
-# The overlay mounts read-only like the host tree: a writable mount lets the
-# container's portage write a root-owned metadata/md5-cache into the checkout,
-# and the stale hashes then mask new or edited ebuilds as "corruption" on the
-# next run (the same failure class the smoke workflow's "Reset workspace" step
-# guards against).
+# The overlay mounts writable: the resolve pass's dead-atom existence check
+# reads the md5-cache entries portage generates while emerging each package.
+# The cache is root-owned inside the container, so an EXIT trap drops it
+# before the checkout is handed back — a leftover stale cache would mask new
+# or edited ebuilds as "corruption" on the next run (the same failure class
+# the smoke workflow's "Reset workspace" step guards against).
 docker run --rm \
-  -v "$BUILD_ROOT/gentoo:/var/db/repos/omarchy:ro" \
+  -v "$BUILD_ROOT/gentoo:/var/db/repos/omarchy" \
   -v "$BUILD_ROOT/bin/gentoo-resolve:/usr/local/bin/gentoo-resolve:ro" \
+  -v "$BUILD_ROOT/bin/gentoo-provider-atoms.tsv:/usr/local/share/omarchy/provider-atoms.tsv:ro" \
   -v "$HOST_TREE:$HOST_TREE:ro" \
   "$IMAGE" bash -c '
     set -eu
+    trap "rm -rf /var/db/repos/omarchy/metadata/md5-cache" EXIT
     mkdir -p /etc/portage/repos.conf
     ln -sf /usr/share/portage/config/repos.conf /etc/portage/repos.conf/gentoo.conf
     printf "[omarchy]\nlocation = /var/db/repos/omarchy\nmasters = gentoo\nauto-sync = off\n" > /etc/portage/repos.conf/omarchy.conf

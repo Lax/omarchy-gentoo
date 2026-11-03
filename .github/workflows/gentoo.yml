@@ -152,6 +152,7 @@ jobs:
             -e RESOLVE_ARGS \
             -v "$PWD/gentoo:/var/db/repos/omarchy" \
             -v "$PWD/bin/gentoo-resolve:/usr/local/bin/gentoo-resolve:ro" \
+            -v "$PWD/bin/gentoo-provider-atoms.tsv:/usr/local/share/omarchy/provider-atoms.tsv:ro" \
             -v "$PWD/pkgcheck-cache:/tmp/pkgcheck-cache" \
             gentoo/stage3 bash -c '
               set -eu
@@ -225,6 +226,7 @@ jobs:
           docker run --rm --network host --label omarchy-smoke \
             -v "$PWD/gentoo:/var/db/repos/omarchy" \
             -v "$PWD/bin/gentoo-resolve:/usr/local/bin/gentoo-resolve:ro" \
+            -v "$PWD/bin/gentoo-provider-atoms.tsv:/usr/local/share/omarchy/provider-atoms.tsv:ro" \
             -v /data/cache/omarchy-runner/distfiles:/var/cache/distfiles \
             -v /data/cache/omarchy-runner/binpkgs:/var/cache/binpkgs \
             -v /data/cache/omarchy-runner/ccache:/var/cache/ccache \

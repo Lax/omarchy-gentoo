@@ -16,10 +16,158 @@
 #                                          itself resolves, ok with a note
 #                                          (the graph is blocked inside the
 #                                          gentoo tree fixture); else FAIL.
+#   any dep atom whose category/pn exists in no configured repo -> FAIL
+#     regardless of the emerge verdicts (emerge and the --nodeps retry are
+#     blind to dead atoms behind satisfiable-looking verdicts; see the
+#     2026-10 sddm/xdg-desktop-portal incidents).
 # The overlay's exit code is the number of failures.
 set -uo pipefail
 
 REPO=${OMARCHY_REPO:-/var/db/repos/omarchy}
+
+# Atoms no gate repo provides but real machines get from a third-party
+# overlay (today: hyproverlay's gui-wm/hyprland). Mounted next to this
+# script by gentoo.yml and docker-gates.sh; a missing file disables the
+# allowance.
+PROVIDERS=${OMARCHY_RESOLVE_PROVIDERS:-/usr/local/share/omarchy/provider-atoms.tsv}
+
+provider_allowed() {
+	[[ -f $PROVIDERS ]] || return 1
+	awk -F'\t' -v k="$1" '$1 == k { found=1; exit } END { exit !found }' "$PROVIDERS"
+}
+
+# Repos an atom may live in (colon-separated; default: every repo under
+# /var/db/repos, which is where both CI and the local docker gates mount
+# the gentoo tree and this overlay).
+resolve_repos() {
+	if [[ -n "${OMARCHY_RESOLVE_REPOS:-}" ]]; then
+		printf '%s\n' "$OMARCHY_RESOLVE_REPOS" | tr ':' '\n'
+	else
+		for d in /var/db/repos/*/; do printf '%s\n' "${d%/}"; done
+	fi
+}
+
+atom_exists() {
+	local cp=$1 dir
+	[[ -d "$REPO/$cp" ]] || return 1
+	compgen -G "$REPO/$cp/*.ebuild" >/dev/null
+}
+
+external_atom_exists() {
+	local cp=$1 dir
+	while IFS= read -r dir; do
+		[[ -n "$dir" && -d "$dir/$cp" ]] || continue
+		[[ "$dir" == "$REPO" ]] && continue
+		compgen -G "$dir/$cp/*.ebuild" >/dev/null && return 0
+	done < <(resolve_repos)
+	return 1
+}
+
+# category/pn of one dependency token; empty when the token is not an atom.
+# PMS: the version begins at the first hyphen followed by a digit, and pn
+# segments never do, so cutting there matches how portage names the package.
+atom_cp() {
+	local tok=$1 cp pn
+	while :; do
+		case $tok in
+			'!'*) tok=${tok#!} ;;
+			'='*) tok=${tok#=} ;;
+			'<'*) tok=${tok#<} ;;
+			'>'*) tok=${tok#>} ;;
+			# quoted: an unquoted pattern '~' tilde-expands to $HOME, matches
+			# nothing, and the strip loop spins forever (found on the omarchy
+			# meta's ~omarchy/omarchy-settings-4.0.6 dep, 2026-11-03).
+			'~'*) tok=${tok#"~"} ;;
+			*) break ;;
+		esac
+	done
+	cp=${tok%%/*}
+	[[ "$cp" != "$tok" ]] || return 1
+	pn=${tok#*/}
+	pn=${pn%%:*}
+	pn=${pn%%\[*}
+	pn=${pn%%\*}
+	if [[ $pn =~ -[0-9] ]]; then
+		pn=${pn%"${BASH_REMATCH[0]}"*}
+	fi
+	[[ $cp =~ ^[A-Za-z0-9+_]+(-[A-Za-z0-9+_]+)*$ && $pn =~ ^[A-Za-z0-9+_]+(-[A-Za-z0-9+_]+)*$ ]] || return 1
+	printf '%s/%s' "$cp" "$pn"
+}
+
+# Dead category/pn atoms of one dep value, one per line. Depends on the
+# md5-cache metadata (emerge's first pass generates it), whose dep fields
+# carry post-inherit dep strings: atom-shaped tokens only, never ebuild
+# text, so no URL false positives. OR-groups (any-of) report dead only when
+# every member is dead; atoms behind USE conditionals are checked
+# unconditionally (a dead atom behind a flag is a latent defect).
+dep_dead_atoms() {
+	local flat tok prev=' ' cp
+	local -a modes=() oks=() deads=()
+	flat=$(printf '%s ' "$1" | sed 's/(/ ( /g; s/)/ ) /g')
+	for tok in ${flat}; do
+		if [[ $tok == '||' ]]; then
+			prev=$tok
+			continue
+		fi
+		if [[ $tok == '(' ]]; then
+			if [[ $prev == '||' ]]; then
+				modes+=(anyof); oks+=(0); deads+=("")
+			else
+				modes+=(all); oks+=(""); deads+=("")
+			fi
+			prev=$tok
+			continue
+		fi
+		if [[ $tok == ')' ]]; then
+			if (( ${#modes[@]} )) && [[ ${modes[-1]} == anyof ]] && ! ((oks[-1])); then
+				printf '%s\n' ${deads[-1]}
+			fi
+			unset 'modes[-1]' 'oks[-1]' 'deads[-1]'
+			prev=$tok
+			continue
+		fi
+		if [[ $tok == *'?' ]]; then
+			prev=$tok
+			continue
+		fi
+		if cp=$(atom_cp "$tok") && [[ -n $cp ]]; then
+			if (( ${#modes[@]} )) && [[ ${modes[-1]} == anyof ]]; then
+				if atom_exists "$cp" || external_atom_exists "$cp" || provider_allowed "$cp"; then
+					oks[-1]=1
+				else
+					deads[-1]+=" $cp"
+				fi
+			elif ! atom_exists "$cp" && ! external_atom_exists "$cp" && ! provider_allowed "$cp"; then
+				printf '%s\n' "$cp"
+			fi
+		fi
+		prev=$tok
+	done
+}
+
+# Dep values of a package from its generated metadata; empty output and
+# rc 1 when the cache entry does not exist yet. md5-dict names one file per
+# ebuild (cat/pn-<version>, version always digit-led, so pn-[0-9]* never
+# catches a sibling like dropbox-cli).
+cache_dep_values() {
+	local atom=$1 f
+	compgen -G "$REPO/metadata/md5-cache/$atom-[0-9]*" >/dev/null || return 1
+	for f in "$REPO/metadata/md5-cache/$atom"-[0-9]*; do
+		sed -nE 's/^(DEPEND|RDEPEND|BDEPEND|PDEPEND|IDEPEND)=//p' "$f"
+	done
+}
+
+dead_atoms() {
+	local atom=$1 values value dead=""
+	values=$(cache_dep_values "$atom") || return 1
+	while IFS= read -r value; do
+		[[ -n $value ]] || continue
+		while IFS= read -r cp; do
+			[[ -n $cp ]] && dead+="$cp"$'\n'
+		done < <(dep_dead_atoms "$value")
+	done <<<"$values"
+	printf '%s' "$dead"
+}
 
 self_test() {
 	# The subshell scopes the tmp cleanup trap; set -u would turn it into
@@ -27,27 +175,67 @@ self_test() {
 	(
 	tmp=$(mktemp -d)
 	trap 'rm -rf "$tmp"' EXIT
-	mkdir -p "$tmp/repo/app/test" "$tmp/repo/other/pkg" "$tmp/repo/metadata/md5-cache"
+	mkdir -p "$tmp/repo/app/test" "$tmp/repo/app/bad" "$tmp/repo/app/orlor" \
+		"$tmp/repo/app/ordead" "$tmp/repo/app/nometa" "$tmp/repo/app/tilde" \
+		"$tmp/repo/other/pkg-name" "$tmp/repo/metadata/md5-cache/app" \
+		"$tmp/repo/metadata/md5-cache/other"
 	echo 'EAPI=8' > "$tmp/repo/app/test/test-1.ebuild"
-	echo 'EAPI=8' > "$tmp/repo/other/pkg/pkg-1.ebuild"
+	echo 'EAPI=8' > "$tmp/repo/app/bad/bad-1.ebuild"
+	echo 'EAPI=8' > "$tmp/repo/app/orlor/orlor-1.ebuild"
+	echo 'EAPI=8' > "$tmp/repo/app/ordead/ordead-1.ebuild"
+	echo 'EAPI=8' > "$tmp/repo/app/nometa/nometa-1.ebuild"
+	echo 'EAPI=8' > "$tmp/repo/app/tilde/tilde-1.ebuild"
+	echo 'EAPI=8' > "$tmp/repo/other/pkg-name/pkg-name-1.ebuild"
+	# Metadata fixture: bad names a dead atom outright, orlor hides it in an
+	# any-of group with one live member, ordead's group is dead on both
+	# branches. Dead atoms use the real 2026-10 incident names (hyphenated
+	# categories, which is exactly what the cp validator must not reject),
+	# and pkg-name exercises a hyphenated pn. tilde carries the '~' operator
+	# whose strip pattern once tilde-expanded to $HOME and spun the parser
+	# (omarchy meta's ~omarchy/omarchy-settings-4.0.6, 2026-11-03). Packages
+	# without a cache entry hit the unchecked-note path.
+	: > "$tmp/repo/metadata/md5-cache/app/test-1"
+	: > "$tmp/repo/metadata/md5-cache/other/pkg-name-1"
+	echo 'RDEPEND=other/pkg-name x11-misc/sddm' > "$tmp/repo/metadata/md5-cache/app/bad-1"
+	echo 'RDEPEND=|| ( other/pkg-name x11-misc/sddm )' > "$tmp/repo/metadata/md5-cache/app/orlor-1"
+	echo 'RDEPEND=|| ( x11-misc/sddm gui-apps/nope )' > "$tmp/repo/metadata/md5-cache/app/ordead-1"
+	echo 'RDEPEND=~other/pkg-name-1' > "$tmp/repo/metadata/md5-cache/app/tilde-1"
 	# A fake emerge so no portage is needed; it answers ok to everything.
 	printf '#!/bin/bash\necho "fake emerge: $*"\nexit 0\n' > "$tmp/emerge"
 	chmod +x "$tmp/emerge"
-	env OMARCHY_RESOLVE_SKIP_MAKECONF=1 OMARCHY_REPO="$tmp/repo" \
-		PATH="$tmp:$PATH" "$0" --only app/test > "$tmp/out1"
+	local fixture_env=(env OMARCHY_RESOLVE_SKIP_MAKECONF=1 OMARCHY_REPO="$tmp/repo"
+		OMARCHY_RESOLVE_REPOS="$tmp/repo" PATH="$tmp:$PATH")
+	"${fixture_env[@]}" "$0" --only app/bad > "$tmp/out0"
+	grep -q '^FAIL app/bad (dead dependency atom(s): x11-misc/sddm)$' "$tmp/out0" ||
+		{ echo "self-test: dead atom not flagged" >&2; exit 1; }
+	"${fixture_env[@]}" "$0" --only app/test > "$tmp/out1" ||
+		{ echo "self-test: --only app/test failed" >&2; exit 1; }
 	grep -q '^ok   app/test$' "$tmp/out1" || { echo "self-test: --only did not resolve app/test" >&2; exit 1; }
-	if grep -q 'other/pkg' "$tmp/out1"; then
+	if grep -q 'other/pkg-name' "$tmp/out1"; then
 		echo "self-test: --only leaked into other packages" >&2
 		exit 1
 	fi
 	if env OMARCHY_RESOLVE_SKIP_MAKECONF=1 OMARCHY_REPO="$tmp/repo" \
-		PATH="$tmp:$PATH" "$0" --only no/such >/dev/null 2>&1; then
+		OMARCHY_RESOLVE_REPOS="$tmp/repo" PATH="$tmp:$PATH" "$0" --only no/such >/dev/null 2>&1; then
 		echo "self-test: unknown atom accepted" >&2
 		exit 1
 	fi
-	env OMARCHY_RESOLVE_SKIP_MAKECONF=1 OMARCHY_REPO="$tmp/repo" \
-		PATH="$tmp:$PATH" "$0" > "$tmp/out2"
-	[[ $(grep -c '^ok' "$tmp/out2") -eq 2 ]] || { echo "self-test: bare run did not cover both packages" >&2; exit 1; }
+	"${fixture_env[@]}" "$0" > "$tmp/out2" && {
+		echo "self-test: bare run exited 0 despite dead atoms" >&2
+		exit 1
+	}
+	[[ $(grep -c '^ok' "$tmp/out2") -eq 5 ]] ||
+		{ echo "self-test: bare run ok count: $(grep -c '^ok' "$tmp/out2")" >&2; exit 1; }
+	[[ $(grep -c '^FAIL' "$tmp/out2") -eq 2 ]] ||
+		{ echo "self-test: bare run FAIL count: $(grep -c '^FAIL' "$tmp/out2")" >&2; exit 1; }
+	grep -q '^ok   app/orlor$' "$tmp/out2" ||
+		{ echo "self-test: any-of with a live member must stay ok" >&2; exit 1; }
+	grep -q '^ok   app/tilde$' "$tmp/out2" ||
+		{ echo "self-test: '~'-prefixed atom must parse without spinning" >&2; exit 1; }
+	grep -q 'gui-apps/nope' "$tmp/out2" ||
+		{ echo "self-test: fully dead any-of must name both members" >&2; exit 1; }
+	grep -q '^ok   app/nometa (metadata missing; atom existence unchecked)$' "$tmp/out2" ||
+		{ echo "self-test: missing-metadata note missing" >&2; exit 1; }
 	echo "self-test ok"
 	)
 }
@@ -81,6 +269,14 @@ if [[ -z "${OMARCHY_RESOLVE_SKIP_MAKECONF:-}" ]]; then
 	# for the desktop stack these packages pull in.
 	grep -q 'USE=.*X' /etc/portage/make.conf 2>/dev/null ||
 		echo 'USE="${USE} X gtk"' >>/etc/portage/make.conf
+
+	# The dead-atom existence pass reads the repo's md5-cache, and a user
+	# emerge never populates it (that is egencache's job). Best-effort: when
+	# it fails, the per-package verdicts carry a "metadata missing" note
+	# instead of a silent skip.
+	if command -v egencache >/dev/null 2>&1; then
+		egencache --repo omarchy --update --jobs "$(nproc)" >/dev/null 2>&1 || true
+	fi
 fi
 
 # Build the directory list: explicit --only atoms, or the whole tree.
@@ -108,14 +304,28 @@ for dir in "${dirs[@]}"; do
 
 	out=$(emerge --pretend --quiet y --autounmask-write "$atom" 2>&1)
 	rc=$?
+	# Existence pass: needs the md5-cache entry, which the emerge above has
+	# just generated for this package (see dep_dead_atoms).
+	meta_note=""
+	dead=""
+	if ! dead=$(dead_atoms "$atom"); then
+		dead=""
+		meta_note=" (metadata missing; atom existence unchecked)"
+	fi
+	if [[ -n $dead ]]; then
+		echo "FAIL $atom (dead dependency atom(s): $dead)"
+		((rc)) && grep '!!!' <<<"$out" | head -3 | sed 's/^/     /'
+		((++failures))
+		continue
+	fi
 	if [[ $rc -eq 0 ]]; then
-		echo "ok   $atom"
+		echo "ok   $atom${meta_note}"
 	elif grep -q "USE changes are necessary" <<<"$out"; then
-		echo "ok   $atom (USE changes needed)"
+		echo "ok   $atom (USE changes needed)${meta_note}"
 	else
 		out2=$(emerge --pretend --quiet y --nodeps "$atom" 2>&1)
 		if [[ $? -eq 0 ]]; then
-			echo "ok   $atom (graph blocked by tree fixture; atom ok via --nodeps)"
+			echo "ok   $atom (graph blocked by tree fixture; atom ok via --nodeps)${meta_note}"
 		else
 			echo "FAIL $atom"
 			grep '!!!' <<<"$out" | head -3 | sed 's/^/     /'

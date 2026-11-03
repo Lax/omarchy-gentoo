@@ -1,0 +1,9 @@
+# Dependency atoms the resolve gate's repos cannot satisfy but real
+# deployments get from a third-party overlay. bin/gentoo-resolve skips
+# these in its dead-atom existence pass. Columns:
+#   <category/pn> <provider> <reason>, tab separated; '#' comments.
+# Anything added here is a promise to a user: name the provider and keep
+# the porting plan visible (wave = see helpers/gentoo-skip.tsv classes).
+gui-wm/hyprland	hyproverlay	Omarchy's compositor; porting it overlay-side is wave3-scale (huge native build), hyproverlay supplies gui-wm/hyprland on real machines
+gui-libs/xdg-desktop-portal-hyprland	hyproverlay	Hyprland's portal backend, dropped from ::gentoo 2026; omarchy meta needs it and hyproverlay carries it (omarchy-base header: "the omarchy core carries this dependency")
+gui-apps/walker	guru	Omarchy's launcher frontend, packaged in ::guru; the gate fixture mounts only ::gentoo and the overlay (learn-omarchy's skip row already assumes guru as a provider repo)
