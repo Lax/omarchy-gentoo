@@ -6,11 +6,11 @@
 # The pool is rolling and 403s superseded builds, so every bump must confirm
 # the new debs exist in the pool before trusting the pin (in 2026-09 the
 # 26.9.4+build72244 debs vanished and the pin temporarily tracked the
-# dists/stable index instead of the pkgver). The upstream recipe has no
-# _build variable - it builds the URL from pkgver directly - so sync-gentoo
-# cannot refresh this pin mechanically: bump _build by hand with the marker.
-# Reconciled to the upstream pkgver at 26.10.2+build122020 (both debs
-# confirmed present in the pool before the pin moved).
+# dists/stable index instead of the pkgver). sync-gentoo flags a stale pin
+# as a bump line but leaves the value for a hand update (the pool build
+# need not always equal the recipe's pkgver). Reconciled to the upstream
+# pkgver at 26.10.3+build141572 on 2026-11-03, both debs confirmed present
+# in the pool before the pin moved (the 26.10.2+build122020 debs now 403).
 EAPI=8
 
 inherit desktop
@@ -18,7 +18,7 @@ inherit desktop
 DESCRIPTION="Official Perplexity desktop app"
 HOMEPAGE="https://www.perplexity.ai"
 _pool="https://packages.perplexity.ai/deb/pool/main/p/perplexity"
-_build="26.10.2%2Bbuild122020"
+_build="26.10.3%2Bbuild141572"
 SRC_URI="
 	amd64? ( ${_pool}/perplexity_${_build}_amd64.deb -> ${P}.deb )
 	arm64? ( ${_pool}/perplexity_${_build}_arm64.deb -> ${P}.deb )
