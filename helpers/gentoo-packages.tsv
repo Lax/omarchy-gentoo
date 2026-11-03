@@ -99,3 +99,6 @@ collie-bin	app-misc	collie-bin
 omarchy-themes-intros	omarchy	omarchy-themes-intros
 helium-browser-bin	www-client	helium-browser-bin
 omacalc	sci-calculators	omacalc
+gridcraft-bin	app-office	gridcraft-bin
+wordcraft-bin	app-office	wordcraft-bin
+hex-bin	app-accessibility	hex-bin
