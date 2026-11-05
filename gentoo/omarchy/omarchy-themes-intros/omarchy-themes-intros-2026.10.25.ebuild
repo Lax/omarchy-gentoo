@@ -1,4 +1,4 @@
-# arch-pkgver: 2026.10.14
+# arch-pkgver: 2026.10.25
 # Copyright 2026, omarchy-gentoo overlay team
 # Distributed under the terms of the MIT license
 
@@ -10,7 +10,7 @@ EAPI=8
 
 DESCRIPTION="Background intro videos for the Omarchy themes"
 HOMEPAGE="https://github.com/basecamp/omarchy"
-_COMMIT=ecf0eb362283efad6404b939981c7ef8d58039b3
+_COMMIT=a1ea6096d0bd88bd61ed871fc35628cd56e8bb72
 SRC_URI="https://github.com/basecamp/omarchy/archive/${_COMMIT}.tar.gz -> ${P}.tar.gz"
 
 S="${WORKDIR}/omarchy-${_COMMIT}"
