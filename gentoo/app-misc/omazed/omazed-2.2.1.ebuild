@@ -1,4 +1,4 @@
-# arch-pkgver: 2.2.0
+# arch-pkgver: 2.2.1
 # Ported from pkgbuilds/omaged.
 EAPI=8
 
