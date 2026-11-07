@@ -59,19 +59,26 @@ BDEPEND="
 # order: the asahi-hook guard and the kept Limine/mkinitcpio drop-ins must be
 # ported alongside re-deciding the "Arch-specific" filters above.
 OMARCHY_ETC_KEEP=(
+	NetworkManager/conf.d/omarchy-connectivity.conf
 	NetworkManager/conf.d/omarchy-wifi-powersave.conf
 	docker/daemon.json
 	fastfetch/config.jsonc
 	gnupg/dirmngr.conf
+	mise/conf.d/omarchy-agent-accounts.toml
+	mise/conf.d/omarchy-tools.toml
 	mise/conf.d/omarchy.toml
 	modprobe.d/omarchy-usb-autosuspend.conf
+	mpv/mpv.conf
 	profile.d/omarchy.sh
 	sddm.conf.d/10-theme.conf
 	sddm.conf.d/10-wayland.conf
 	sudoers.d/omarchy-dns
+	sudoers.d/omarchy-locale-generate
 	sudoers.d/omarchy-passwd-tries
+	sudoers.d/omarchy-sudo-timeout
 	sudoers.d/omarchy-theme-browser
 	sudoers.d/omarchy-tzupdate
+	sysctl.d/90-omarchy-arp.conf
 	sysctl.d/90-omarchy-file-watchers.conf
 	sysctl.d/99-omarchy-sysctl.conf
 	systemd/logind.conf.d/10-ignore-power-button.conf
@@ -80,12 +87,17 @@ OMARCHY_ETC_KEEP=(
 	systemd/resolved.conf.d/10-disable-multicast.conf
 	systemd/resolved.conf.d/20-docker-dns.conf
 	systemd/system.conf.d/10-faster-shutdown.conf
+	systemd/system.conf.d/20-mount-events.conf
 	systemd/system.conf.d/20-omarchy-nofile.conf
 	systemd/system/docker.service.d/no-block-boot.conf
+	systemd/system/proc-sys-fs-binfmt_misc.mount.d/10-omarchy-conditions.conf
 	systemd/system/plocate-updatedb.service.d/ac-only.conf
+	systemd/system/systemd-binfmt.service.d/10-eager-mount.conf
 	systemd/system/user@.service.d/10-faster-shutdown.conf
 	systemd/user.conf.d/20-omarchy-nofile.conf
+	systemd/user/wayland-wm@hyprland.desktop.service.d/10-keep-shell.conf
 	tmpfiles.d/omarchy-nopasswd-sudo.conf
+	udev/rules.d/60-omarchy-io-scheduler.rules
 	xdg/kitty/kitty.conf
 	xkb/rules/evdev
 	xkb/symbols/omarchy
@@ -164,8 +176,9 @@ src_install() {
 	done
 	# sudoers.d: 0440 files in a 0750 directory or sudo refuses them.
 	fperms 0750 /etc/sudoers.d
-	fperms 0440 /etc/sudoers.d/omarchy-dns /etc/sudoers.d/omarchy-passwd-tries \
-		/etc/sudoers.d/omarchy-theme-browser /etc/sudoers.d/omarchy-tzupdate
+	fperms 0440 /etc/sudoers.d/omarchy-dns /etc/sudoers.d/omarchy-locale-generate \
+	/etc/sudoers.d/omarchy-passwd-tries /etc/sudoers.d/omarchy-sudo-timeout \
+	/etc/sudoers.d/omarchy-theme-browser /etc/sudoers.d/omarchy-tzupdate
 	# Snapper config template (data; only consumed if the user runs btrfs+snapper).
 	insinto /etc/snapper/config-templates
 	doins default/snapper/root
