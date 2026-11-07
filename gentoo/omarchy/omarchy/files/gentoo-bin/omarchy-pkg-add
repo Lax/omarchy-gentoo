@@ -27,6 +27,8 @@ declare -A OMARCHY_ARCH_TO_GENTOO=(
 	# Arch names the X.Org utility with its xorg- prefix; Gentoo ships it as
 	# x11-apps/xsetroot.
 	[xorg-xsetroot]=x11-apps/xsetroot
+	# Gentoo's iHD VA-API driver carries the libva- prefix.
+	[intel-media-driver]=media-libs/libva-intel-media-driver
 )
 
 if (($#)); then
