@@ -80,3 +80,10 @@
 # 1791708587 — installs signed, the PDF signing app: recipe exists upstream,
 # port pending (P3 candidate, same class as monologue/hype).
 1791708587.sh
+# 1791898365 — speeds up the Limine boot menu: this box boots GRUB, so the
+# migration is a designed no-op here (no limine.conf to edit). It cannot
+# even reach that no-op unattended: its sudo -v probe prompts under the
+# passwordless-sudo stack's verifypw=all (the reason omarchy-update's own
+# authorize step avoids -v), and an unattended update then dies on the
+# password read. Same class would apply to any future sudo -v migration.
+1791898365.sh
