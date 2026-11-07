@@ -24,6 +24,9 @@ declare -A OMARCHY_ARCH_TO_GENTOO=(
 	# Upstream's "vi" is the standard vi editor; Gentoo's ::gentoo has no
 	# vi/nvi atom, and app-editors/vim installs the eselect-managed vi alias.
 	[vi]=app-editors/vim
+	# Arch names the X.Org utility with its xorg- prefix; Gentoo ships it as
+	# x11-apps/xsetroot.
+	[xorg-xsetroot]=x11-apps/xsetroot
 )
 
 if (($#)); then
