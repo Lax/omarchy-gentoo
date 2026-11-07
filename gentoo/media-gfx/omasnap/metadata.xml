@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="project">
+		<email>hello@omarchy.org</email>
+		<name>Omarchy</name>
+	</maintainer>
+	<longdescription>
+		Native Wayland screenshot and annotation overlay for Hyprland
+		(replaces satty and tensaku from omarchy 4.5.0 on).
+		Omarchy's default screenshot editor: omarchy-capture-screenshot
+		hands captures to omasnap. Ships the omasnap binary and a desktop
+		entry.
+	</longdescription>
+</pkgmetadata>

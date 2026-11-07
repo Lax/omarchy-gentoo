@@ -38,3 +38,35 @@
 # (same class as 1787589206), and on Gentoo that priority is inherent - the
 # overlay is the package source, Portage owns ordering.
 1791403252.sh
+# 1788279117 — replaces the YT6801 vendor DKMS driver: upstream exits 1 by
+# design when lspci finds no 1f0a:6801 adapter, so it would fail outright on
+# every machine without the hardware; the Arch DKMS driver was never
+# installable on Gentoo, so there is nothing here to replace either.
+1788279117.sh
+# 1789764927 — installs owe and owe-lockfeed plus their owed.service hook:
+# both are in-house apps with upstream recipes, not ported yet (P3; the
+# recipe is a Node/web stack, see helpers/gentoo-skip.tsv for family).
+1789764927.sh
+# 1790539857 — installs monologue, the webcam recorder: recipe exists
+# upstream, port pending (P3 candidate).
+1790539857.sh
+# 1790542069 — installs hype, the Markdown presentation app: recipe exists
+# upstream, port pending (P3 candidate).
+1790542069.sh
+# 1791542175 — installs gliff, the Hyprland remote desktop over SSH: recipe
+# exists upstream, port pending (P3 candidate); the x86 guard passes on this
+# overlay's only keyworded arch, so it would run and fail.
+1791542175.sh
+# 1790702362 — installs the compiler and Qt stack for building Omarchy-style
+# apps: Arch's base-devel group has no single Gentoo atom. The rest maps to
+# dev-qt/qt{base,declarative,multimedia,svg,wayland}:6 and
+# media-video/ffmpeg; emerge them by hand if wanted.
+1790702362.sh
+# 1791367434 — installs the fcitx5 IME pack: fcitx5-mozc/hangul/chewing are
+# Arch package names (Gentoo: app-i18n/mozc with its fcitx5 USE, hangul and
+# chewing unmapped), and input-method selection is a per-user choice.
+1791367434.sh
+# 1791554699 — swaps Arch's power-profiles-daemon for omarchy's CPPC-enabled
+# fork via raw pacman: the fork is Arch-only; Gentoo keeps
+# sys-power/power-profiles-daemon.
+1791554699.sh

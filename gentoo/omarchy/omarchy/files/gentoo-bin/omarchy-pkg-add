@@ -21,6 +21,9 @@ declare -A OMARCHY_ARCH_TO_GENTOO=(
 	[vulkan-radeon]=media-libs/mesa
 	[vulkan-asahi]=media-libs/mesa
 	[sof-firmware]=sys-firmware/sof-firmware
+	# Upstream's "vi" is the standard vi editor; Gentoo's ::gentoo has no
+	# vi/nvi atom, and app-editors/vim installs the eselect-managed vi alias.
+	[vi]=app-editors/vim
 )
 
 if (($#)); then

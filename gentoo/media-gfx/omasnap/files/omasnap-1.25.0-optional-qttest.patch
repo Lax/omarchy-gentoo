@@ -1,0 +1,25 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -5,7 +5,12 @@
+ set(CMAKE_AUTOMOC ON)
+ 
+ find_package(PkgConfig REQUIRED)
+-find_package(Qt6 6.8 REQUIRED COMPONENTS Concurrent Core Gui Test Widgets)
++find_package(Qt6 6.8 REQUIRED COMPONENTS Concurrent Core Gui Widgets)
++# Gentoo port: the Qt6Test module only ships with dev-qt/qtbase's test USE,
++# and the smoke suite below is upstream CI tooling. Make it optional so a
++# -test qtbase can build the app itself; wherever Qt6Test exists the suite
++# still builds and runs under the upstream check().
++find_package(Qt6Test CONFIG QUIET)
+ find_package(LayerShellQt REQUIRED)
+ pkg_check_modules(WaylandClient REQUIRED IMPORTED_TARGET wayland-client)
+ pkg_check_modules(Libdeflate REQUIRED IMPORTED_TARGET libdeflate)
+@@ -152,7 +157,7 @@
+ target_link_libraries(omasnap PRIVATE omasnap-core)
+ target_precompile_headers(omasnap REUSE_FROM omasnap-core)
+ 
+-if(BUILD_TESTING)
++if(BUILD_TESTING AND TARGET Qt6::Test)
+ qt_add_executable(omasnap-smoke
+   tests/scroll-focus-smoke.cpp
+   tests/scroll-focus-smoke.hpp

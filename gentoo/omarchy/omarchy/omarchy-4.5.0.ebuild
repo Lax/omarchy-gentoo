@@ -34,9 +34,9 @@ KEYWORDS="~amd64"
 #   fakeroot/pacman-contrib -> the portage toolbelt (eix/gentoolkit/portage-utils)
 #   limine*/snapper     -> Gentoo boots via grub/systemd-boot; no bootloader here
 #   ttf-jetbrains-mono-nerd-basic -> media-fonts/jetbrains-mono-nerd-basic
-# tensaku -> upstream base.packages line 114 and the default screenshot
-#   editor: omarchy-capture-screenshot hands captures to tensaku-edit
-#   unless $OMARCHY_SCREENSHOT_EDITOR is set
+# omasnap -> upstream base.packages line 107 and the default screenshot
+#   editor from 4.5.0 on: omarchy-capture-screenshot hands captures to
+#   omasnap (migration 1788129995 drops the former tensaku)
 #   util-linux[caps]     -> setpriv, which omarchy-update-stay-awake needs to
 #   drop the sleep inhibitor to the calling user; Gentoo gates the binary
 #   behind USE=caps and a default -caps install leaves the update pipeline
@@ -56,12 +56,12 @@ RDEPEND="
 	gnome-base/gnome-keyring
 	gui-apps/grim
 	gui-apps/slurp
-	gui-apps/tensaku
 	gui-apps/quickshell
 	gui-apps/uwsm
 	gui-apps/wl-clipboard
 	gui-libs/xdg-desktop-portal-hyprland
 	gui-wm/hyprland
+	media-gfx/omasnap
 	media-fonts/jetbrains-mono-nerd-basic
 	media-gfx/imagemagick
 	media-video/pipewire

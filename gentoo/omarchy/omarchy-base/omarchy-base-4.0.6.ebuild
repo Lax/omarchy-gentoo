@@ -32,7 +32,7 @@
 #   qt6-imageformats -> dev-qt/qtimageformats
 #   tesseract-data-eng -> app-text/tessdata_fast
 #   woff2-font-awesome -> media-fonts/fontawesome
-#   gum, hyprland, localsend, mise-bin, quickshell, tensaku, tobi-try,
+#   gum, hyprland, localsend, mise-bin, quickshell, omasnap, tobi-try,
 #     ttfx, ttf-ia-writer, ttf-jetbrains-mono-nerd-basic, ufw-docker,
 #     xdg-terminal-exec -> this overlay (see helpers/gentoo-packages.tsv)
 EAPI=8
@@ -155,7 +155,6 @@ RDEPEND="
 	gnome-base/gvfs[nfs]
 	gnome-base/gvfs[samba]
 	gui-apps/quickshell
-	gui-apps/tensaku
 	gui-wm/hyprland
 	llvm-core/clang
 	llvm-core/llvm
@@ -166,6 +165,7 @@ RDEPEND="
 	media-fonts/noto-cjk
 	media-fonts/noto-emoji
 	media-gfx/imagemagick
+	media-gfx/omasnap
 	net-dns/avahi
 	net-firewall/ufw-docker
 	net-misc/localsend-bin
