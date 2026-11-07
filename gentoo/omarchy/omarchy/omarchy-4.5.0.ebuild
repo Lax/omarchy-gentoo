@@ -37,6 +37,10 @@ KEYWORDS="~amd64"
 # tensaku -> upstream base.packages line 114 and the default screenshot
 #   editor: omarchy-capture-screenshot hands captures to tensaku-edit
 #   unless $OMARCHY_SCREENSHOT_EDITOR is set
+#   util-linux[caps]     -> setpriv, which omarchy-update-stay-awake needs to
+#   drop the sleep inhibitor to the calling user; Gentoo gates the binary
+#   behind USE=caps and a default -caps install leaves the update pipeline
+#   unable to start its inhibitor at all
 RDEPEND="
 	~omarchy/omarchy-settings-${PV}
 	app-misc/jq
@@ -47,6 +51,7 @@ RDEPEND="
 	app-shells/fzf
 	app-shells/gum
 	dev-lang/perl
+	sys-apps/util-linux[caps]
 	dev-vcs/git
 	gnome-base/gnome-keyring
 	gui-apps/grim
