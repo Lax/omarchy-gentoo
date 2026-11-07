@@ -1,6 +1,6 @@
 --- a/bin/omarchy-setup-security-fingerprint
 +++ b/bin/omarchy-setup-security-fingerprint
-@@ -74,14 +74,9 @@
+@@ -146,14 +146,9 @@
    exit 1
  fi
  
@@ -17,4 +17,4 @@
 +omarchy-pkg-add sys-auth/libfprint sys-auth/fprintd sys-apps/usbutils
  
  # Enroll first fingerprint
- echo -e "\e[32m\nLet's setup your right index finger as the first fingerprint.\e[0m"
+ # Authenticate sudo first, and say so: with fingerprint sudo already set up it

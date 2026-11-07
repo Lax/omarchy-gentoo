@@ -1,0 +1,52 @@
+--- a/default/hypr/autostart.lua
++++ b/default/hypr/autostart.lua
+@@ -20,7 +20,11 @@
+   -- Start the herdr server inside the graphical session so its panes inherit
+   -- WAYLAND_DISPLAY. Otherwise the first SSH login from a remote herdr starts
+   -- it with a tty environment, and agents in its panes can't read the clipboard.
+-  hl.exec_cmd(o.launch("herdr server"))
++  -- Gentoo port: herdr has no portage package yet (helpers/gentoo-skip.tsv);
++  -- gate on its presence instead of failing every session start.
++  if o.cmd_present("herdr") then
++    hl.exec_cmd(o.launch("herdr server"))
++  end
+ 
+   -- Run post-boot hooks after startup config has loaded.
+   hl.exec_cmd("sleep 2 && omarchy-hook post-boot")
+--- a/default/hypr/bindings/utilities.lua
++++ b/default/hypr/bindings/utilities.lua
+@@ -9,7 +9,9 @@
+ o.bind("XF86PowerOff", "Power menu", { menu = "system" }, { locked = true })
+ o.bind("SUPER + K", "Keybindings", "omarchy-menu-keybindings")
+ o.bind("SUPER + ALT + K", "Tmux keybindings", "omarchy-menu-tmux-keybindings")
+-o.bind("SUPER + CTRL + K", "Herdr keybindings", "omarchy-menu-herdr-keybindings")
++if o.cmd_present("herdr") then
++  o.bind("SUPER + CTRL + K", "Herdr keybindings", "omarchy-menu-herdr-keybindings")
++end
+ o.bind_toggle("SUPER + SHIFT + SPACE", "Toggle top bar", "bar")
+ o.bind("SUPER + CTRL + SPACE", "Background switcher", { menu = "background" })
+ o.bind("SUPER + CTRL + W", "Background switcher", { menu = "background" })
+--- a/default/hypr/bindings/applications.lua
++++ b/default/hypr/bindings/applications.lua
+@@ -10,7 +10,9 @@
+ if o.preinstalled_bindings_enabled() then
+   -- Bindings for preinstalled Omarchy applications, TUIs, and web apps.
+   o.bind("SUPER + ALT + RETURN", "Tmux", { omarchy = "terminal-tmux" })
+-  o.bind("SUPER + CTRL + RETURN", "Herdr", { omarchy = "terminal-herdr" })
++  if o.cmd_present("herdr") then
++    o.bind("SUPER + CTRL + RETURN", "Herdr", { omarchy = "terminal-herdr" })
++  end
+   o.bind("SUPER + SHIFT + Q", "Calculator", "omacalc")
+   o.bind("XF86Calculator", "Calculator", "omacalc")
+   o.bind("SUPER + SHIFT + M", "Music", { omarchy = "spotify" })
+--- a/default/bash/aliases
++++ b/default/bash/aliases
+@@ -50,7 +50,7 @@
+ alias d='docker'
+ alias r='rails'
+ alias t='tmux attach || tmux new -s Work'
+-alias h='herdr'
++command -v herdr >/dev/null 2>&1 && alias h='herdr'
+ alias ic='tdl c'
+ alias ix='tdl cx'
+ alias icx='tdl c cx'

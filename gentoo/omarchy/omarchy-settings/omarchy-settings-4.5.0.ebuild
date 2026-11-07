@@ -44,6 +44,9 @@ BDEPEND="
 # sysusers.d/omarchy-cups-browsed.conf (creates a user for cups we don't ship)
 # and tmpfiles.d/omarchy-zswap.conf (disables zswap, which only makes sense
 # with the always-zram Arch kernel).
+# Kept on purpose since 4.5.0: xkb/rules/evdev + xkb/symbols/omarchy —
+# libxkbcommon reads /etc/xkb ahead of the system rules, and the default
+# kb_options reference the omarchy:shift_caps_compose option defined there.
 #
 # At the next OMARCHY_TAG bump, re-review this allowlist: omacom/omarchy#13362
 # moves the mkinitcpio HOOKS baseline into
@@ -84,21 +87,25 @@ OMARCHY_ETC_KEEP=(
 	systemd/user.conf.d/20-omarchy-nofile.conf
 	tmpfiles.d/omarchy-nopasswd-sudo.conf
 	xdg/kitty/kitty.conf
+	xkb/rules/evdev
+	xkb/symbols/omarchy
 )
 
 src_configure() { :; }
 src_compile() { :; }
 
 # Patches for portage: the two helpers this package ships in common with
-# upstream (the wider patch set lives on the omarchy meta package), plus a
+# upstream (the wider patch set lives on the omarchy meta package), a
 # fix for the SDDM theme's session pick (upstream probes Qt.DisplayRole,
-# which SDDM's SessionModel never implements).
+# which SDDM's SessionModel never implements), and gating the herdr
+# defaults on its presence (no portage package; helpers/gentoo-skip.tsv).
 src_prepare() {
 	default
 	eapply \
 		"${FILESDIR}"/omarchy-gentoo-debug.patch \
 		"${FILESDIR}"/omarchy-gentoo-upload-log.patch \
-		"${FILESDIR}"/omarchy-gentoo-sddm-session-role.patch
+		"${FILESDIR}"/omarchy-gentoo-sddm-session-role.patch \
+		"${FILESDIR}"/omarchy-gentoo-herdr-optional.patch
 }
 
 src_install() {
