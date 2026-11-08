@@ -114,6 +114,17 @@ jobs:
             echo "needs_human=true" >> "$GITHUB_OUTPUT"
             cp /tmp/reconcile.log /tmp/followup.log
           fi
+          # The bump is the tree's highest-frequency writer and a
+          # GITHUB_TOKEN push fires no push event for other workflows (the
+          # dispatch below papers over the overlay gates), so the tooling
+          # self-tests would otherwise never run on bot commits. Gate the
+          # push on them: an invariant the reconcile broke must not land -
+          # the run goes red and the next cycle retries the drift.
+          bin/scaffold-ebuild --self-test
+          bin/ai-port --self-test
+          bin/sync-gentoo --self-test
+          bin/gentoo-resolve --self-test
+          bin/gentoo-resolve-scope --self-test
 
       - name: File follow-up issue for non-mechanical drift
         if: steps.work.outputs.needs_human == 'true'
@@ -127,9 +138,29 @@ jobs:
             "" "    $(sed 's/$/  /' /tmp/followup.log | tr '\n' ' ')" "" \
             "Read AGENTS.md, fix, verify with \`bin/ai-port --verify <category>/<name>\`, and push to master." \
             "The gates in gentoo.yml validate the result and file further issues if anything is off.")
-          curl -sS -X POST \
+          # One live follow-up issue at a time: comment on the open one
+          # instead of stacking a fresh issue per cycle (#50-#54 piled up
+          # because this used to create unconditionally). The agent closes
+          # the issue when its rows are finished; a later cycle with new
+          # drift then opens a clean one.
+          title="upstream sync needs follow-up (automated)"
+          existing=$(curl -sS \
             -H "Authorization: Bearer ${GH_TOKEN}" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues" \
-            -d "$(jq -nc --arg t "upstream sync needs follow-up (automated)" --arg b "$body" \
-                  '{title: $t, body: $b, labels: ["gentoo-overlay"]}')"
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues?state=open&per_page=100" \
+            | jq -r --arg t "$title" '[.[] | select(.title == $t and (.pull_request | not))][0].number // empty')
+          if [[ -n "$existing" ]]; then
+            curl -sS -X POST \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/$existing/comments" \
+              -d "$(jq -nc --arg b "$body" '{body: $b}')" > /dev/null
+            echo "commented on existing follow-up issue #$existing"
+          else
+            curl -sS -X POST \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues" \
+              -d "$(jq -nc --arg t "$title" --arg b "$body" \
+                    '{title: $t, body: $b, labels: ["gentoo-overlay"]}')" > /dev/null
+            echo "filed a new follow-up issue"
+          fi
