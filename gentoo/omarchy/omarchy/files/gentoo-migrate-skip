@@ -87,6 +87,12 @@
 # authorize step avoids -v), and an unattended update then dies on the
 # password read. Same class would apply to any future sudo -v migration.
 1791898365.sh
+# 1778623107 — installs mpv-mpris: an AUR-only mpv plugin with no ::gentoo
+# or overlay package; mpv scripting stays the user's own setup.
+1778623107.sh
+# 1780739888 — installs dua-cli: never ported, and superseded by
+# 1791345484, which replaces it with disktree-bin.
+1780739888.sh
 # Pre-port migrations driving raw pacman (1785013000, 1785351479,
 # 1787399318, 1787865477, 1788009111, 1789928586, 1791152480,
 # 1791769486): they predate both the Gentoo port and the omarchy-pkg-*

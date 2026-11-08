@@ -194,6 +194,9 @@ jobs:
             -e RESOLVE_ARGS \
             -v "$PWD/gentoo:/var/db/repos/omarchy" \
             -v "$PWD/bin/gentoo-resolve:/usr/local/bin/gentoo-resolve:ro" \
+            -v "$PWD/bin/gentoo-migration-audit:/usr/local/bin/gentoo-migration-audit:ro" \
+            -v "$PWD/helpers/gentoo-packages.tsv:/usr/local/share/omarchy/gentoo-packages.tsv:ro" \
+            -v "$PWD/upstream-omarchy/migrations:/upstream/migrations:ro" \
             -v "$PWD/bin/gentoo-provider-atoms.tsv:/usr/local/share/omarchy/provider-atoms.tsv:ro" \
             -v "$PWD/pkgcheck-cache:/tmp/pkgcheck-cache" \
             gentoo/stage3 bash -c '
@@ -212,20 +215,6 @@ jobs:
               else
                 echo "resolve skipped - nothing resolve-relevant changed"
               fi
-            '
-
-      - name: Migration audit (stage3)
-        # The migration-audit deep check needs a portage tree to prove
-        # unqualified names resolve, which only exists inside the stage3
-        # image - the same repos root the resolve pass uses.
-        run: |
-          docker run --rm \
-            -v "$PWD/gentoo:/var/db/repos/omarchy" \
-            -v "$PWD/helpers/gentoo-packages.tsv:/usr/local/share/omarchy/gentoo-packages.tsv:ro" \
-            -v "$PWD/bin/gentoo-migration-audit:/usr/local/bin/gentoo-migration-audit:ro" \
-            -v "$PWD/upstream-omarchy/migrations:/upstream/migrations:ro" \
-            gentoo/stage3 bash -c '
-              set -eu
               gentoo-migration-audit \
                 --migrations-dir /upstream/migrations \
                 --skip-file /var/db/repos/omarchy/omarchy/omarchy/files/gentoo-migrate-skip \
