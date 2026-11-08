@@ -1,0 +1,180 @@
+#!/usr/bin/env bash
+# Two-way audit of the omarchy-settings /etc allowlist against upstream.
+# The 4.5.0 bump missed the "re-review this allowlist" note the ebuild
+# carries, twelve /etc files went unshipped, and omarchy update broke on a
+# migration waiting for one of them (mise/conf.d/omarchy-tools.toml). This
+# gate turns that re-review into a deterministic check: any upstream file
+# the allowlist neither keeps nor excludes by documented policy fails, and
+# any keep entry upstream no longer ships fails too.
+#
+# Usage:
+#   bin/gentoo-etc-audit --upstream-manifest <file> --ebuild <omarchy-settings ebuild>
+#       <file>: one path per line relative to the upstream etc/ tree, files
+#               only (generate with: git ls-files etc from an omarchy source
+#               checkout, stripping the etc/ prefix)
+#       <ebuild>: the gentoo/omarchy/omarchy-settings/*.ebuild to audit
+#   bin/gentoo-etc-audit --self-test
+#
+# Exit 0 when clean, 1 with findings on stderr/stdout.
+set -uo pipefail
+
+die() { echo "gentoo-etc-audit: $*" >&2; exit 1; }
+
+usage() { die "need --upstream-manifest <file> --ebuild <ebuild> (or --self-test)"; }
+
+upstream_manifest=""
+ebuild=""
+
+while (($#)); do
+	case "$1" in
+		--upstream-manifest) upstream_manifest=$2; shift 2 ;;
+		--ebuild) ebuild=$2; shift 2 ;;
+		--self-test) self_test=1; shift ;;
+		*) usage ;;
+	esac
+done
+
+# Exclusion policy, mirroring the rationale block on OMARCHY_ETC_KEEP in the
+# settings ebuild: Arch-specific stacks the overlay intentionally does not
+# ship, and the etc-overrides class portage never installs into place.
+# Files matching these are reported as excluded (visible, not failing);
+# anything OUTSIDE the patterns that the allowlist does not keep is a
+# finding - a conscious allowlist-or-exclude decision is required, which is
+# the whole point of the gate.
+excluded() { # excluded <path> -> prints the policy name on match
+	case "$1" in
+		mkinitcpio.conf.d/*) echo "Arch initramfs stack" ;;
+		limine-entry-tool.d/*) echo "Arch Limine boot stack" ;;
+		nsswitch.conf) echo "Arch libc/nsswitch" ;;
+		security/*) echo "Arch faillock auth stack" ;;
+		plymouth/*) echo "Arch plymouth daemon config" ;;
+		sysusers.d/*) echo "sysusers for unshipped cups-browsed" ;;
+		tmpfiles.d/omarchy-zswap.conf) echo "always-zram Arch kernel" ;;
+		cups/*) echo "etc-overrides class (cups)" ;;
+		systemd/system/cups-browsed.service.d/*) echo "drop-in for unshipped cups-browsed" ;;
+		*) return 1 ;;
+	esac
+}
+
+parse_keep() { # parse_keep <ebuild> -> keep paths, one per line
+	sed -n '/^OMARCHY_ETC_KEEP=(/,/^)/p' "$1" |
+		sed -e 's/^OMARCHY_ETC_KEEP=(//' -e 's/)$//' |
+		sed -e 's/[[:space:]]*#.*//' -e '/^[[:space:]]*$/d' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' |
+		grep -v '^$'
+}
+
+audit() { # audit <manifest> <ebuild>
+	local manifest=$1 ebuild=$2 failures=0
+	[[ -r $manifest ]] || die "upstream manifest not readable: $manifest"
+	[[ -r $ebuild ]] || die "ebuild not readable: $ebuild"
+
+	parse_keep "$ebuild" > "$tmp/keep"
+	sort "$manifest" > "$tmp/upstream"
+	# Keep entries are unique by construction; upstream paths are unique by
+	# git. Sort both for the two-way diff.
+	sort -u "$tmp/keep" > "$tmp/keep.sorted"
+
+	# 1. keep entries upstream no longer ships -> stale allowlist rows.
+	while IFS= read -r entry; do
+		if ! grep -qxF "$entry" "$tmp/upstream"; then
+			echo "FAIL stale keep entry (upstream no longer ships it): $entry"
+			((++failures))
+		fi
+	done < "$tmp/keep.sorted"
+
+	# 2. upstream files the allowlist neither keeps nor excludes by policy
+	#    -> an unadjudicated file the settings package would silently not
+	#    ship (the 4.5.0 failure mode).
+	while IFS= read -r path; do
+		grep -qxF "$path" "$tmp/keep.sorted" && continue
+		if policy=$(excluded "$path"); then
+			echo "note excluded by policy ($policy): $path"
+		else
+			echo "FAIL unadjudicated upstream etc file (keep it in OMARCHY_ETC_KEEP or extend the exclusion policy): $path"
+			((++failures))
+		fi
+	done < "$tmp/upstream"
+
+	if ((failures)); then
+		echo "gentoo-etc-audit: $failures finding(s)" >&2
+		return 1
+	fi
+	echo "gentoo-etc-audit: clean ($(wc -l < "$tmp/keep.sorted") kept, $(wc -l < "$tmp/upstream") upstream files)"
+}
+
+self_test() {
+	# The subshell scopes the tmp cleanup trap the same way
+	# bin/gentoo-resolve-scope's self-test does.
+	(
+	self=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
+	tmp=$(mktemp -d)
+	trap 'rm -rf "$tmp"' EXIT
+	t_failures=0
+	check() { # check <name> <got> <want>
+		if [[ "$2" == "$3" ]]; then
+			echo "ok   $1"
+		else
+			echo "FAIL $1: got [$2], want [$3]"
+			((++t_failures))
+		fi
+	}
+	outcome() { # outcome <manifest-content> <keep-content> -> exit status;
+	            # the audit's stdout/stderr flows through to the caller's
+	            # capture, so rc-only checks must redirect themselves.
+		printf '%s\n' "$1" > "$tmp/m"
+		printf '%s\n' "$2" > "$tmp/e"
+		# A minimal ebuild whose OMARCHY_ETC_KEEP block is the fixture's.
+		{ echo 'EAPI=8'
+		  echo 'OMARCHY_ETC_KEEP=('
+		  cat "$tmp/e"
+		  echo ')'
+		} > "$tmp/eb"
+		"$self" --upstream-manifest "$tmp/m" --ebuild "$tmp/eb"
+	}
+
+	# Clean tree: everything kept, nothing unadjudicated.
+	rc=0; outcome "a/b.toml" "	a/b.toml" >/dev/null 2>&1 || rc=$?
+	check "clean tree passes" "$rc" 0
+
+	# Unadjudicated upstream file -> fail (the 4.5.0 mise-tools failure).
+	rc=0; out=$(outcome "a/b.toml"$'\n'"mise/conf.d/omarchy-tools.toml" "	a/b.toml" 2>&1) || rc=$?
+	check "unadjudicated file fails" "$rc" 1
+	[[ $out == *"unadjudicated upstream etc file"* ]] && echo "ok   finding names the file" \
+		|| { echo "FAIL finding does not name the file"; ((++t_failures)); }
+
+	# Policy-excluded file -> visible note, not a failure. The kept entry
+	# must stay in the manifest or the stale check fires instead.
+	rc=0; out=$(outcome "a/b.toml"$'\n'"mkinitcpio.conf.d/x.conf" "	a/b.toml" 2>&1) || rc=$?
+	check "policy exclusion passes" "$rc" 0
+	[[ $out == *"note excluded by policy"* ]] && echo "ok   exclusion is visible" \
+		|| { echo "FAIL exclusion not visible"; ((++t_failures)); }
+
+	# Stale keep entry (kept, but upstream no longer ships it) -> fail.
+	rc=0; out=$(outcome "c/d.conf" "	a/b.toml"$'\n'"	c/d.conf" 2>&1) || rc=$?
+	check "stale keep entry fails" "$rc" 1
+	[[ $out == *"stale keep entry"* ]] && echo "ok   stale finding names the entry" \
+		|| { echo "FAIL stale finding not named"; ((++t_failures)); }
+
+	# Keep entries survive an inline comment in the ebuild block.
+	rc=0; outcome "a/b.toml" "	a/b.toml   # kept on purpose" >/dev/null 2>&1 || rc=$?
+	check "inline comment tolerated" "$rc" 0
+
+	if ((t_failures == 0)); then
+		echo "all self-tests passed"
+	else
+		echo "self-test: $t_failures failure(s)" >&2
+		exit 1
+	fi
+	)
+}
+
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+if [[ ${self_test:-} ]]; then
+	self_test
+	exit $?
+fi
+
+[[ -n $upstream_manifest && -n $ebuild ]] || usage
+audit "$upstream_manifest" "$ebuild"
