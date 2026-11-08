@@ -7,8 +7,8 @@ EAPI=8
 DESCRIPTION="Amp, the frontier coding agent, as a desktop app"
 HOMEPAGE="https://ampcode.com"
 SRC_URI="
-	amd64? ( https://static.ampcode.com/linux/0.1.29898841/amp-desktop-0.1.29898841-amd64.deb -> ${P}.deb )
-	arm64? ( https://static.ampcode.com/linux/0.1.29898841/amp-desktop-0.1.29898841-arm64.deb -> ${P}.deb )
+	amd64? ( https://static.ampcode.com/linux/0.1.29901001/amp-desktop-0.1.29901001-amd64.deb -> ${P}.deb )
+	arm64? ( https://static.ampcode.com/linux/0.1.29901001/amp-desktop-0.1.29901001-arm64.deb -> ${P}.deb )
 "
 
 S="${WORKDIR}"
