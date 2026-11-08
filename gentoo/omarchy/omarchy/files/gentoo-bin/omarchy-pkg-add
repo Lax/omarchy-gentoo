@@ -13,7 +13,7 @@
 declare -A OMARCHY_ARCH_TO_GENTOO=(
 	[libvips]=media-libs/vips
 	[qt6-imageformats]=dev-qt/qtimageformats
-	[lsp-plugins-lv2]=media-plugins/lsp-plugins
+	[lsp-plugins-lv2]=media-libs/lsp-plugins
 	[libfprint-git]=sys-auth/libfprint
 	# Intel/AMD/Asahi Vulkan ships in media-libs/mesa (vulkan USE), not as
 	# separate driver packages like on Arch.

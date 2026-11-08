@@ -87,3 +87,29 @@
 # authorize step avoids -v), and an unattended update then dies on the
 # password read. Same class would apply to any future sudo -v migration.
 1791898365.sh
+# Pre-port migrations driving raw pacman (1785013000, 1785351479,
+# 1787399318, 1787865477, 1788009111, 1789928586, 1791152480,
+# 1791769486): they predate both the Gentoo port and the omarchy-pkg-*
+# tools, and every Gentoo install has already settled them - upgraded
+# installs ran them during the 4.5.0 migration wave (their pacman paths
+# are guarded no-ops there), fresh installs seed all migration markers
+# through /etc/skel. Static audit class: raw pacman.
+1785013000.sh
+1785351479.sh
+1787399318.sh
+1787865477.sh
+1788009111.sh
+1789928586.sh
+1791152480.sh
+1791769486.sh
+# 1790973240 — ASUS ProArt P14 speaker firmware: hardware-guarded
+# (omarchy-hw-match H7407BA, an aarch64 laptop this ~amd64-only overlay
+# can never match) and the vendor firmware package is Arch-only.
+1790973240.sh
+# 1791077437 — installs linux-omarchy-n1x and its headers: aarch64-guarded
+# kernel packages, and kernels are the user's on Gentoo (README
+# "intentionally not ported" #3).
+1791077437.sh
+# 1792041364 — installs gliff on aarch64: hardware-guarded on an arch this
+# overlay does not keyword, and the recipe is unported (P3).
+1792041364.sh

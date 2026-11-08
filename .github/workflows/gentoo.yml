@@ -131,12 +131,12 @@ jobs:
           echo "args=${args:-}" >> "$GITHUB_OUTPUT"
           cat /tmp/scope.env
 
-      - name: Audit the settings /etc allowlist against upstream
-        # The 4.5.0 bump missed the allowlist re-review note and omarchy
-        # update broke on an unshipped migration input. This walks the
-        # upstream etc/ tree at the settings ebuild's pinned commit and
-        # requires every file to be kept, or excluded by the documented
-        # policy, in bin/gentoo-etc-audit.
+      - name: Fetch the upstream omarchy source at the settings pin
+        # The audits adjudicate upstream content (the settings /etc tree,
+        # the migrations) that the submodule does not carry. A sparse,
+        # blob-filtered clone at the pinned commit fetches exactly what
+        # they need.
+        id: upstream-src
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -144,13 +144,23 @@ jobs:
           ebuild=$(ls gentoo/omarchy/omarchy-settings/omarchy-settings-*.ebuild | sort -V | tail -1)
           commit=$(sed -n "s/^_commit='\([0-9a-f]\{40\}\)'.*/\1/p" "$ebuild")
           [[ -n "$commit" ]] || { echo "no _commit pin in $ebuild" >&2; exit 1; }
-          curl -sS -H "Authorization: Bearer ${GH_TOKEN}" \
-            "https://api.github.com/repos/omacom/omarchy/git/trees/$commit?recursive=1" \
-            > /tmp/upstream-tree.json
-          [[ "$(jq -r '.truncated' /tmp/upstream-tree.json)" == "false" ]] \
-            || { echo "upstream tree listing truncated" >&2; exit 1; }
-          jq -r '.tree[] | select(.path | startswith("etc/")) | .path' \
-            /tmp/upstream-tree.json > /tmp/upstream-etc-paths.txt
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          git clone --quiet --depth 1 --filter=blob:none --sparse \
+            "https://x-access-token:${GH_TOKEN}@github.com/omacom/omarchy" upstream-omarchy
+          git -C upstream-omarchy fetch --quiet --depth 1 origin "$commit"
+          git -C upstream-omarchy -c advice.detachedHead=false checkout --quiet FETCH_HEAD
+          git -C upstream-omarchy sparse-checkout set etc migrations install
+
+      - name: Audit the settings /etc allowlist against upstream
+        # The 4.5.0 bump missed the allowlist re-review note and omarchy
+        # update broke on an unshipped migration input. This walks the
+        # upstream etc/ tree at the pinned commit and requires every file
+        # to be kept, or excluded by the documented policy, in
+        # bin/gentoo-etc-audit.
+        run: |
+          set -eu
+          ebuild=$(ls gentoo/omarchy/omarchy-settings/omarchy-settings-*.ebuild | sort -V | tail -1)
+          (cd upstream-omarchy && git ls-files etc) | sed 's|^etc/||' > /tmp/upstream-etc-paths.txt
           # Files only: a path that prefixes another is a directory.
           mapfile -t etc_paths < /tmp/upstream-etc-paths.txt
           for p in "${etc_paths[@]}"; do
@@ -158,7 +168,7 @@ jobs:
             for q in "${etc_paths[@]}"; do
               [[ "$q" == "$p"/* ]] && { is_dir=1; break; }
             done
-            ((is_dir)) || echo "${p#etc/}"
+            ((is_dir)) || echo "$p"
           done > /tmp/upstream-etc-files.txt
           bin/gentoo-etc-audit \
             --upstream-manifest /tmp/upstream-etc-files.txt --ebuild "$ebuild"
@@ -202,6 +212,26 @@ jobs:
               else
                 echo "resolve skipped - nothing resolve-relevant changed"
               fi
+            '
+
+      - name: Migration audit (stage3)
+        # The migration-audit deep check needs a portage tree to prove
+        # unqualified names resolve, which only exists inside the stage3
+        # image - the same repos root the resolve pass uses.
+        run: |
+          docker run --rm \
+            -v "$PWD/gentoo:/var/db/repos/omarchy" \
+            -v "$PWD/helpers/gentoo-packages.tsv:/usr/local/share/omarchy/gentoo-packages.tsv:ro" \
+            -v "$PWD/bin/gentoo-migration-audit:/usr/local/bin/gentoo-migration-audit:ro" \
+            -v "$PWD/upstream-omarchy/migrations:/upstream/migrations:ro" \
+            gentoo/stage3 bash -c '
+              set -eu
+              gentoo-migration-audit \
+                --migrations-dir /upstream/migrations \
+                --skip-file /var/db/repos/omarchy/omarchy/omarchy/files/gentoo-migrate-skip \
+                --pkg-add-map /var/db/repos/omarchy/omarchy/omarchy/files/gentoo-bin/omarchy-pkg-add \
+                --tsv /usr/local/share/omarchy/gentoo-packages.tsv \
+                --gentoo-repos-root /var/db/repos
             '
 
   smoke-emerge:

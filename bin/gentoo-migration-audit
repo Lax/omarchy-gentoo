@@ -1,0 +1,272 @@
+#!/usr/bin/env bash
+# Audit upstream Omarchy migrations for Gentoo survivability. Migrations are
+# upstream source content the sync reconcile never touches; the 4.5.0 cycle
+# shipped 91 pending ones and the desktop update hit four independent
+# failure classes inside them (an unmapped omarchy-pkg-add name, raw
+# pacman, a sudo -v probe that prompts under the passwordless-sudo stack's
+# verifypw=all, and package atoms the host keywords do not cover). This
+# gate encodes those classes:
+#
+#   1. every gentoo-migrate-skip entry must name a real upstream migration
+#      (a typo would silently un-skip a migration),
+#   2. a not-skipped migration must not call raw `pacman` or probe `sudo -v`,
+#   3. every omarchy-pkg-add/omarchy-pkg-install name must resolve:
+#      the runtime map's atom, an overlay row in gentoo-packages.tsv, or a
+#      package directory under a portage repos root (deep check; needs the
+#      repos root, e.g. inside the lint stage3 container). omarchy-pkg-drop
+#      names never fail - the port checks qlist first.
+#
+# Usage:
+#   bin/gentoo-migration-audit --migrations-dir <dir> --skip-file <file> \
+#       --pkg-add-map <omarchy-pkg-add> --tsv <gentoo-packages.tsv> \
+#       [--gentoo-repos-root <dir>]
+#   bin/gentoo-migration-audit --self-test
+#
+# Exit 0 clean, 1 with findings.
+set -uo pipefail
+
+die() { echo "gentoo-migration-audit: $*" >&2; exit 1; }
+
+migrations_dir=""
+skip_file=""
+pkg_add_map=""
+tsv=""
+repos_root=""
+
+while (($#)); do
+	case "$1" in
+		--migrations-dir) migrations_dir=$2; shift 2 ;;
+		--skip-file) skip_file=$2; shift 2 ;;
+		--pkg-add-map) pkg_add_map=$2; shift 2 ;;
+		--tsv) tsv=$2; shift 2 ;;
+		--gentoo-repos-root) repos_root=$2; shift 2 ;;
+		--self-test) self_test=1; shift ;;
+		*) die "unknown argument: $1" ;;
+	esac
+done
+
+atom_dir_exists() { # atom_dir_exists <repos-root> <atom> -> 0 if packaged
+	# <repos-root> is the parent holding every configured repo (::gentoo
+	# plus the overlays the host syncs): a mapped atom may live in any of
+	# them.
+	local root=$1 atom=$2 repo
+	atom=${atom%%:*} # strip :slot=
+	atom=${atom%%[*} # strip [use] deps
+	[[ $atom =~ ^([a-z0-9_-]+)/([a-zA-Z0-9_+-]+)$ ]] || return 1
+	for repo in "$root"/*/; do
+		[[ -d "$repo/${BASH_REMATCH[1]}/${BASH_REMATCH[2]}" ]] && return 0
+	done
+	return 1
+}
+
+name_resolves() { # name_resolves <name> -> prints how, or returns 1
+	local name=$1
+	local atom
+	# Runtime map (the authoritative rename table).
+	atom=$(sed -n "s/^[[:space:]]*\[$name\]=\(.*\)$/\1/p" "$pkg_add_map" | head -1)
+	if [[ -n $atom ]]; then
+		if [[ -n $repos_root ]] && atom_dir_exists "$repos_root" "$atom"; then
+			echo "mapped -> $atom"
+			return 0
+		elif [[ -z $repos_root ]]; then
+			echo "mapped -> $atom (repos root unavailable, atom unverified)"
+			return 0
+		fi
+		return 1
+	fi
+	# Overlay row: col1 == name resolves as cat/name in the overlay.
+	local overlay_cat overlay_name
+	overlay_cat=$(awk -F '\t' -v n="$name" '$1 == n { print $2; exit }' "$tsv")
+	overlay_name=$(awk -F '\t' -v n="$name" '$1 == n { print $3; exit }' "$tsv")
+	if [[ -n $overlay_cat ]] && [[ -d "$overlay_root/$overlay_cat/$overlay_name" ]]; then
+		echo "overlay -> $overlay_cat/$overlay_name"
+		return 0
+	fi
+	# Deep check: an unqualified name that is a real package in any
+	# configured repo (::gentoo or the overlays the host syncs).
+	if [[ -n $repos_root ]] && compgen -G "$repos_root/*/*/$name" > /dev/null; then
+		echo "gentoo identity"
+		return 0
+	fi
+	# tsv gentoo-name equal to the name with a real overlay dir (identity
+	# overlay packages).
+	if [[ -n $overlay_cat && $overlay_name == "$name" ]] \
+		&& [[ -d "$overlay_root/$overlay_cat/$overlay_name" ]]; then
+		echo "overlay identity"
+		return 0
+	fi
+	return 1
+}
+
+audit() { # audit <migrations-dir>
+	local dir=$1 failures=0 total=0 skipped=0
+	[[ -d $dir ]] || die "migrations dir not readable: $dir"
+	[[ -r $skip_file ]] || die "skip file not readable: $skip_file"
+	[[ -r $pkg_add_map ]] || die "runtime map not readable: $pkg_add_map"
+	[[ -r $tsv ]] || die "tsv not readable: $tsv"
+	# Env overrides exist for the self-test's fixtures; production takes
+	# --gentoo-repos-root and the real overlay mount.
+	repos_root=${repos_root:-${OMARCHY_MIGRATION_AUDIT_GENTOO_ROOT:-}}
+	local overlay_root=${OMARCHY_MIGRATION_AUDIT_OVERLAY_ROOT:-/var/db/repos/omarchy}
+
+	# 1. Skip-file integrity: every entry must name a real migration.
+	while IFS= read -r entry; do
+		[[ -n $entry ]] || continue
+		if [[ ! -f "$dir/$entry" ]]; then
+			echo "FAIL skip-file entry names no upstream migration (typo?): $entry"
+			((++failures))
+		fi
+	done < <(grep -E '^[0-9]+\.sh$' "$skip_file")
+
+	while IFS= read -r mig; do
+		mig=$(basename "$mig")
+		((++total))
+		# Skipped migrations never run on Gentoo: exempt from the content
+		# checks below (that is the entire point of skipping).
+		grep -qxF "$mig" "$skip_file" && { ((++skipped)); continue; }
+		local body
+		body=$(grep -vE '^[[:space:]]*#' "$dir/$mig")
+
+		# 2a. sudo -v prompts even under passwordless sudo (verifypw=all),
+		#     which is exactly why omarchy-update's authorize step avoids it.
+		if grep -qE '(^|[[:space:]])sudo +-v([[:space:]]|$)' <<<"$body"; then
+			echo "FAIL $mig probes sudo -v (prompts under verifypw=all; unattended updates die here)"
+			((++failures))
+		fi
+		# 2b. raw pacman: the ported package tools must be used instead.
+		if grep -qE '(^|[[:space:]])pacman +-?[A-Za-z]' <<<"$body"; then
+			echo "FAIL $mig drives raw pacman (use omarchy-pkg-add / emerge)"
+			((++failures))
+		fi
+		# 3. every installed name must resolve somewhere.
+		while IFS= read -r name; do
+			[[ -n $name ]] || continue
+			if how=$(name_resolves "$name"); then
+				echo "note $mig: $name resolves ($how)"
+			else
+				echo "FAIL $mig installs an unresolvable package name: $name"
+				((++failures))
+			fi
+		done < <(grep -hE '(^|[[:space:]])omarchy-pkg-(add|install) ' "$dir/$mig" |
+			sed -E 's/^.*omarchy-pkg-(add|install)[[:space:]]+//' |
+			cut -d'#' -f1 | cut -d';' -f1 | cut -d'|' -f1 |
+			sed -E 's/[[:space:]]*\\$//' | tr '[:space:]' '\n' |
+			grep -E '^[a-z0-9][a-z0-9._+-]*$' | sort -u)
+	done < <(find "$dir" -maxdepth 1 -name '*.sh' | sort)
+
+	if ((failures)); then
+		echo "gentoo-migration-audit: $failures finding(s) over $total migrations ($skipped skipped)" >&2
+		return 1
+	fi
+	echo "gentoo-migration-audit: clean ($total migrations, $skipped skipped)"
+}
+
+self_test() {
+	(
+	self=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
+	tmp=$(mktemp -d)
+	trap 'rm -rf "$tmp"' EXIT
+	t_failures=0
+	check() { # check <name> <got> <want>
+		if [[ "$2" == "$3" ]]; then
+			echo "ok   $1"
+		else
+			echo "FAIL $1: got [$2], want [$3]"
+			((++t_failures))
+		fi
+	}
+	# Fixture repos root: rtkit (identity), dev-qt/qtbase (mapped target);
+	# mystery has no home anywhere.
+	mkdir -p "$tmp/repos/gentoo/sys-auth/rtkit" "$tmp/repos/gentoo/dev-qt/qtbase" \
+		"$tmp/overlay/cat-overlay/overlay-bin" "$tmp/migrations"
+	printf 'overlay-bin\tcat-overlay\toverlay-bin\n' > "$tmp/tsv"
+	cat > "$tmp/map" <<'MAP'
+#!/bin/bash
+declare -A OMARCHY_ARCH_TO_GENTOO=(
+	[qt6-base]=dev-qt/qtbase:6
+)
+MAP
+	cat > "$tmp/migrations/01-identity.sh" <<'MIG'
+omarchy-pkg-add rtkit zram-generator
+MIG
+	cat > "$tmp/migrations/02-mapped.sh" <<'MIG'
+omarchy-pkg-add qt6-base || true
+MIG
+	cat > "$tmp/migrations/03-overlay.sh" <<'MIG'
+omarchy-pkg-install overlay-bin
+MIG
+	cat > "$tmp/migrations/04-bad.sh" <<'MIG'
+omarchy-pkg-add mystery-pkg
+MIG
+	cat > "$tmp/migrations/05-sudov.sh" <<'MIG'
+sudo -v
+omarchy-pkg-add rtkit
+MIG
+	cat > "$tmp/migrations/06-pacman.sh" <<'MIG'
+sudo pacman -S --noconfirm rtkit
+MIG
+	cat > "$tmp/migrations/2000000007.sh" <<'MIG'
+omarchy-pkg-add mystery-pkg
+sudo pacman -S rtkit
+MIG
+	cat > "$tmp/migrations/08-drop.sh" <<'MIG'
+omarchy-pkg-drop mystery-pkg
+MIG
+	cat > "$tmp/skip" <<'SKIP'
+# a skip entry
+2000000007.sh
+# a typo entry that names nothing
+2000000099.sh
+SKIP
+	# The audit reads the overlay and the gentoo repos through env
+	# overrides (production uses the real /var/db/repos paths).
+	outcome() { # outcome -> exit status
+		OMARCHY_MIGRATION_AUDIT_OVERLAY_ROOT="$tmp/overlay" \
+			OMARCHY_MIGRATION_AUDIT_GENTOO_ROOT="$tmp/repos" \
+			"$self" --migrations-dir "$tmp/migrations" --skip-file "$tmp/skip" \
+			--pkg-add-map "$tmp/map" --tsv "$tmp/tsv" 2>&1
+	}
+	mkdir -p "$tmp/overlay/cat-overlay/overlay-bin"
+
+	rc=0; out=$(outcome) || rc=$?
+	check "unresolvable/sudo-v/pacman/skip-typo all caught" "$rc" 1
+	for pat in "04-bad.sh installs an unresolvable package name: mystery-pkg" \
+		"05-sudov.sh probes sudo -v" \
+		"06-pacman.sh drives raw pacman" \
+		"2000000099.sh"; do
+		grep -qF "$pat" <<<"$out" && echo "ok   caught: $pat" \
+			|| { echo "FAIL missing finding: $pat"; ((++t_failures)); }
+	done
+	# Skipped migration content is exempt; drops never fail; the mapped,
+	# identity and overlay resolution paths are notes, not failures.
+	grep -qF "2000000007.sh installs" <<<"$out" && { echo "FAIL skipped migration adjudicated"; ((++t_failures)); } \
+		|| echo "ok   skipped migration exempt"
+	grep -qF "08-drop.sh" <<<"$out" && { echo "FAIL drop adjudicated"; ((++t_failures)); } \
+		|| echo "ok   drops never fail"
+	grep -qF "01-identity.sh: rtkit resolves (gentoo identity)" <<<"$out" \
+		&& echo "ok   identity resolved via repos root" \
+		|| { echo "FAIL identity resolution not detected"; ((++t_failures)); }
+	grep -qF "02-mapped.sh: qt6-base resolves (mapped -> dev-qt/qtbase:6)" <<<"$out" \
+		&& echo "ok   mapped atom resolved with slot stripped" \
+		|| { echo "FAIL mapped resolution not detected"; ((++t_failures)); }
+	grep -qF "03-overlay.sh: overlay-bin resolves (overlay -> cat-overlay/overlay-bin)" <<<"$out" \
+		&& echo "ok   overlay row resolved" \
+		|| { echo "FAIL overlay resolution not detected"; ((++t_failures)); }
+
+	if ((t_failures == 0)); then
+		echo "all self-tests passed"
+	else
+		echo "self-test: $t_failures failure(s)" >&2
+		exit 1
+	fi
+	)
+}
+
+if [[ ${self_test:-} ]]; then
+	self_test
+	exit $?
+fi
+
+[[ -n $migrations_dir && -n $skip_file && -n $pkg_add_map && -n $tsv ]] \
+	|| die "need --migrations-dir --skip-file --pkg-add-map --tsv (or --self-test)"
+audit "$migrations_dir"
