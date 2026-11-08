@@ -1,0 +1,176 @@
+#!/usr/bin/env bash
+# Single-source the runtime Arch->Gentoo rename map. The canonical table
+# lives in helpers/gentoo.sh (runtime_map_entries); the shipped copy is the
+# marker-delimited block inside
+# gentoo/omarchy/omarchy/files/gentoo-bin/omarchy-pkg-add. Before this the
+# block was hand-edited and helpers/gentoo.sh's "one file agrees with
+# itself" claim was not true for it - the two drifted independently.
+#
+# Usage:
+#   bin/gentoo-runtime-map --regen [--target <file>]
+#       rewrite the marker-delimited block from the table; a file without
+#       markers gets the block appended (bootstrap)
+#   bin/gentoo-runtime-map --check [--target <file>]
+#       fail if the shipped block drifted from the table
+#   bin/gentoo-runtime-map --self-test
+#
+# Exit 0 clean, 1 with findings.
+set -uo pipefail
+
+die() { echo "gentoo-runtime-map: $*" >&2; exit 1; }
+
+repo_root=$(cd "$(dirname "$0")/.." && pwd)
+helpers="$repo_root/helpers/gentoo.sh"
+target="$repo_root/gentoo/omarchy/omarchy/files/gentoo-bin/omarchy-pkg-add"
+
+BEGIN_MARK="# BEGIN RUNTIME MAP - generated from helpers/gentoo.sh (bin/gentoo-runtime-map); edit the table there, not here."
+END_MARK="# END RUNTIME MAP"
+
+while (($#)); do
+	case "$1" in
+		--target) target=$2; shift 2 ;;
+		--regen | --check | --self-test) action=$1; shift ;;
+		*) die "unknown argument: $1" ;;
+	esac
+done
+action=${action:-}
+
+[[ -r $helpers ]] || die "helpers not readable: $helpers"
+[[ -r $target ]] || die "target not readable: $target"
+# Sourcing needs BUILD_ROOT for the DEPS_MAP/PACKAGES_TSV defaults.
+BUILD_ROOT=${BUILD_ROOT:-$repo_root}
+source "$helpers" || die "sourcing helpers failed"
+command -v runtime_map_entries > /dev/null || die "helpers/gentoo.sh lacks runtime_map_entries"
+
+render_block() {
+	printf '%s\n' "$BEGIN_MARK"
+	printf 'declare -A OMARCHY_ARCH_TO_GENTOO=(\n'
+	runtime_map_entries
+	printf ')\n'
+	printf '%s\n' "$END_MARK"
+}
+
+# The marker-delimited block of a file: BEGIN line through END line
+# inclusive. Fails when the markers are missing or the END never comes.
+extract_block() { # extract_block <file>
+	awk -v b="$BEGIN_MARK" -v e="$END_MARK" '
+		$0 == b { on = 1; print; next }
+		on { print }
+		on && $0 == e { found = 1; exit }
+		END { exit found ? 0 : 1 }
+	' "$1"
+}
+
+do_regen() {
+	# Rewrite between the markers; bootstrap by appending when the target
+	# carries none yet.
+	if extract_block "$target" > /dev/null 2>&1; then
+		awk -v b="$BEGIN_MARK" -v e="$END_MARK" '
+			$0 == b { inmap = 1; next }
+			inmap && $0 == e { inmap = 0; print; next }
+			inmap { next }
+			{ print }
+		' "$target" > "$tmpout"
+		render_block >> "$tmpout"
+	else
+		cat "$target" "$tmpblock" > "$tmpout"
+	fi
+	mv "$tmpout" "$target"
+}
+
+do_check() {
+	local block want
+	block=$(extract_block "$target") || {
+		echo "FAIL shipped map block markers missing or malformed in $target"
+		return 1
+	}
+	want=$(render_block)
+	if [[ "$block" == "$want" ]]; then
+		echo "gentoo-runtime-map: shipped block matches helpers/gentoo.sh"
+		return 0
+	fi
+	echo "FAIL shipped runtime map drifted from helpers/gentoo.sh (run bin/gentoo-runtime-map --regen)"
+	diff <(printf '%s\n' "$want") <(printf '%s\n' "$block") || true
+	return 1
+}
+
+self_test() {
+	(
+	self=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
+	tmp=$(mktemp -d)
+	trap 'rm -rf "$tmp"' EXIT
+	t_failures=0
+	check() { # check <name> <got> <want>
+		if [[ "$2" == "$3" ]]; then
+			echo "ok   $1"
+		else
+			echo "FAIL $1: got [$2], want [$3]"
+			((++t_failures))
+		fi
+	}
+
+	# 1. The real repo file is in sync with the table.
+	rc=0; "$self" --check > "$tmp/out" 2>&1 || rc=$?
+	check "real file matches helpers" "$rc" 0
+
+	# 2. Drift is detected on a doctored copy.
+	drift="$tmp/drift"
+	cp "$repo_root/gentoo/omarchy/omarchy/files/gentoo-bin/omarchy-pkg-add" "$drift"
+	sed -i 's/\[libvips\]=media-libs\/vips/[libvips]=media-libs\/WRONG/' "$drift"
+	rc=0; "$self" --check --target "$drift" > "$tmp/out" 2>&1 || rc=$?
+	check "drift detected" "$rc" 1
+	grep -qF "drifted from" "$tmp/out" && echo "ok   drift message present" \
+		|| { echo "FAIL drift message missing"; ((++t_failures)); }
+
+	# 3. Regen repairs the drifted copy and keeps surrounding lines.
+	rc=0; "$self" --regen --target "$drift" > /dev/null 2>&1 || rc=$?
+	check "regen repairs" "$rc" 0
+	head -1 "$drift" | grep -qF '#!/bin/bash' && echo "ok   kept lines survive regen" \
+		|| { echo "FAIL regen lost surrounding lines"; ((++t_failures)); }
+	rc=0; "$self" --check --target "$drift" > /dev/null 2>&1 || rc=$?
+	check "repaired copy checks clean" "$rc" 0
+
+	# 4. Bootstrap: regen into a marker-less file appends the block.
+	plain="$tmp/plain"
+	printf '#!/bin/bash\necho hi\n' > "$plain"
+	rc=0; "$self" --regen --target "$plain" > /dev/null 2>&1 || rc=$?
+	check "bootstrap regen" "$rc" 0
+	grep -qF 'declare -A OMARCHY_ARCH_TO_GENTOO=(' "$plain" \
+		&& echo "ok   bootstrap added the block" \
+		|| { echo "FAIL bootstrap block missing"; ((++t_failures)); }
+
+	# 5. The table and the shipped block agree on every entry name (comment
+	#    lines inside the table are not entries).
+	sweep_start=$t_failures
+	while IFS= read -r line; do
+		[[ $line == \[*\]=* ]] || continue
+		entry=${line#*[}
+		entry=${entry%%]=*}
+		[[ -n $entry ]] || continue
+		grep -qF "[$entry]=" "$repo_root/gentoo/omarchy/omarchy/files/gentoo-bin/omarchy-pkg-add" \
+			|| { echo "FAIL table entry missing from shipped file: $entry"; ((++t_failures)); }
+	done < <(runtime_map_entries)
+	check "table-to-file sweep" "$t_failures" "$sweep_start"
+
+	if ((t_failures == 0)); then
+		echo "all self-tests passed"
+	else
+		echo "self-test: $t_failures failure(s)" >&2
+		exit 1
+	fi
+	)
+}
+
+tmpblock="$repo_root/.gentoo-runtime-map.block.$$"
+tmpout="$repo_root/.gentoo-runtime-map.out.$$"
+trap 'rm -f "$tmpblock" "$tmpout"' EXIT
+
+case "$action" in
+	--regen)
+		render_block > "$tmpblock"
+		do_regen
+		;;
+	--check) do_check ;;
+	--self-test) self_test ;;
+	*) die "need --regen, --check or --self-test" ;;
+esac

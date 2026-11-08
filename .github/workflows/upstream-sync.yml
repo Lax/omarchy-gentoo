@@ -125,6 +125,7 @@ jobs:
           bin/sync-gentoo --self-test
           bin/gentoo-resolve --self-test
           bin/gentoo-resolve-scope --self-test
+          bin/gentoo-runtime-map --check
 
       - name: File follow-up issue for non-mechanical drift
         if: steps.work.outputs.needs_human == 'true'

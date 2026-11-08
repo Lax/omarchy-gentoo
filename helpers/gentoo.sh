@@ -150,3 +150,43 @@ gentoo_arch_keyword() {
 	*) echo "$1" ;;
 	esac
 }
+
+# The runtime Arch->Gentoo rename table, single-sourced here. The shipped
+# copy lives in gentoo/omarchy/omarchy/files/gentoo-bin/omarchy-pkg-add
+# between the RUNTIME MAP markers; bin/gentoo-runtime-map --regen rewrites
+# it and --check fails the tooling gates when the two drift. Entries are
+# the names whose Gentoo atom differs from the Arch name; unqualified
+# names whose PN matches resolve on their own.
+runtime_map_entries() {
+	cat <<'MAP'
+	[libvips]=media-libs/vips
+	[qt6-imageformats]=dev-qt/qtimageformats
+	[lsp-plugins-lv2]=media-libs/lsp-plugins
+	[libfprint-git]=sys-auth/libfprint
+	# Intel/AMD/Asahi Vulkan ships in media-libs/mesa (vulkan USE), not as
+	# separate driver packages like on Arch.
+	[vulkan-intel]=media-libs/mesa
+	[vulkan-radeon]=media-libs/mesa
+	[vulkan-asahi]=media-libs/mesa
+	[sof-firmware]=sys-firmware/sof-firmware
+	# Upstream's "vi" is the standard vi editor; Gentoo's ::gentoo has no
+	# vi/nvi atom, and app-editors/vim installs the eselect-managed vi alias.
+	[vi]=app-editors/vim
+	# Arch names the X.Org utility with its xorg- prefix; Gentoo ships it as
+	# x11-apps/xsetroot.
+	[xorg-xsetroot]=x11-apps/xsetroot
+	# Gentoo's iHD VA-API driver carries the libva- prefix.
+	[intel-media-driver]=media-libs/libva-intel-media-driver
+	# The Intel trio maps 1:1, but migration 1793452544's vpl-gpu-rt only
+	# carries ~amd64: stable-keyword hosts need
+	#   media-libs/vpl-gpu-rt ~amd64   (and libva-intel-media-driver for
+	#   its 26.3+ dependency chain) in package.accept_keywords, or the
+	# migration fails outright.
+	# The Qt6 stack loses the qt6- prefix (dev-qt/qtbase:6 et al).
+	[qt6-base]=dev-qt/qtbase:6
+	[qt6-declarative]=dev-qt/qtdeclarative:6
+	[qt6-multimedia]=dev-qt/qtmultimedia:6
+	[qt6-svg]=dev-qt/qtsvg:6
+	[qt6-wayland]=dev-qt/qtwayland:6
+MAP
+}

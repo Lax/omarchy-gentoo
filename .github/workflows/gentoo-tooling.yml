@@ -62,9 +62,17 @@ jobs:
           bash -n bin/gentoo-resolve
           bash -n bin/gentoo-resolve-scope
           bash -n bin/sync-gentoo
+          bash -n bin/gentoo-etc-audit
+          bash -n bin/gentoo-base-packages-audit
+          bash -n bin/gentoo-migration-audit
+          bash -n bin/gentoo-runtime-map
           bin/gentoo-resolve --self-test
           bin/gentoo-resolve-scope --self-test
           bin/sync-gentoo --self-test
+          bin/gentoo-etc-audit --self-test
+          bin/gentoo-base-packages-audit --self-test
+          bin/gentoo-migration-audit --self-test
+          bin/gentoo-runtime-map --check
 
       - name: Mapping tables agree with the overlay
         run: |

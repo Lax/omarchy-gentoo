@@ -10,6 +10,7 @@
 # Upstream migrations and scripts pass Arch package names. Map the ones whose
 # Gentoo atom differs before the emerge; everything else passes through
 # unchanged (an unqualified name resolves whenever the Gentoo PN matches).
+# BEGIN RUNTIME MAP - generated from helpers/gentoo.sh (bin/gentoo-runtime-map); edit the table there, not here.
 declare -A OMARCHY_ARCH_TO_GENTOO=(
 	[libvips]=media-libs/vips
 	[qt6-imageformats]=dev-qt/qtimageformats
@@ -41,6 +42,7 @@ declare -A OMARCHY_ARCH_TO_GENTOO=(
 	[qt6-svg]=dev-qt/qtsvg:6
 	[qt6-wayland]=dev-qt/qtwayland:6
 )
+# END RUNTIME MAP
 
 if (($#)); then
   mapped=()
