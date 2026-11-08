@@ -142,7 +142,7 @@ jobs:
         run: |
           set -eu
           ebuild=$(ls gentoo/omarchy/omarchy-settings/omarchy-settings-*.ebuild | sort -V | tail -1)
-          commit=$(sed -n "s/^_commit='\([0-9a-f]\{40\}\)'.*/\1/p" "$ebuild")
+          commit=$(sed -n "s/^OMARCHY_COMMIT=\([0-9a-f]\{40\}\).*/\1/p" "$ebuild")
           [[ -n "$commit" ]] || { echo "no _commit pin in $ebuild" >&2; exit 1; }
           echo "commit=$commit" >> "$GITHUB_OUTPUT"
           git clone --quiet --depth 1 --filter=blob:none --sparse \
