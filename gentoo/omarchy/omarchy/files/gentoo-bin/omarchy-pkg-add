@@ -34,6 +34,12 @@ declare -A OMARCHY_ARCH_TO_GENTOO=(
 	#   media-libs/vpl-gpu-rt ~amd64   (and libva-intel-media-driver for
 	#   its 26.3+ dependency chain) in package.accept_keywords, or the
 	# migration fails outright.
+	# The Qt6 stack loses the qt6- prefix (dev-qt/qtbase:6 et al).
+	[qt6-base]=dev-qt/qtbase:6
+	[qt6-declarative]=dev-qt/qtdeclarative:6
+	[qt6-multimedia]=dev-qt/qtmultimedia:6
+	[qt6-svg]=dev-qt/qtsvg:6
+	[qt6-wayland]=dev-qt/qtwayland:6
 )
 
 if (($#)); then

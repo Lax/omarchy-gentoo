@@ -1,0 +1,182 @@
+#!/usr/bin/env bash
+# Audit omarchy-base against upstream install/omarchy-base.packages. The
+# metapackage is overlay-original with no upstream recipe, so the sync
+# reconcile never touches it: when upstream swaps a package (4.5.0 swapped
+# tensaku for omasnap) only a human reading the diff notices. This gate
+# makes the translation a deterministic check - every upstream name must
+# leave a footprint in the ebuild, through any of:
+#   - its literal name (covers atoms whose PN carries over, and the
+#     ebuild's comment table that documents deliberate drops),
+#   - its helpers/gentoo-packages.tsv gentoo-name,
+#   - the runtime OMARCHY_ARCH_TO_GENTOO map in
+#     gentoo/omarchy/omarchy/files/gentoo-bin/omarchy-pkg-add,
+#   - an explicit exclusion policy below (Arch-only machinery), else FAIL.
+#
+# Usage:
+#   bin/gentoo-base-packages-audit --base-packages <file> --ebuild <omarchy-base ebuild>
+#       <file>: the upstream install/omarchy-base.packages, comments stripped
+#   bin/gentoo-base-packages-audit --self-test
+#
+# Exit 0 clean, 1 with findings.
+set -uo pipefail
+
+die() { echo "gentoo-base-packages-audit: $*" >&2; exit 1; }
+
+repo_root=$(cd "$(dirname "$0")/.." && pwd)
+
+base_packages=""
+ebuild=""
+
+while (($#)); do
+	case "$1" in
+		--base-packages) base_packages=$2; shift 2 ;;
+		--ebuild) ebuild=$2; shift 2 ;;
+		--self-test) self_test=1; shift ;;
+		*) die "unknown argument: $1" ;;
+	esac
+done
+
+# Arch-only machinery with no Gentoo counterpart, deliberately absent from
+# the metapackage. Each entry needs its reason: the point of the gate is
+# that a name is either translated, excluded with a reason, or the build
+# breaks.
+excluded() { # excluded <name> -> prints the reason on match
+	case "$1" in
+		base-devel) echo "Arch toolchain group; portage owns the build toolchain" ;;
+		expac) echo "pacman data reader; portage toolbelt replaces it" ;;
+		expac-git) echo "pacman data reader; portage toolbelt replaces it" ;;
+		pacman) echo "pacman itself; portage replaces it" ;;
+		pacman-contrib) echo "pacman toolbelt; eix/gentoolkit/portage-utils replace it" ;;
+		paru) echo "AUR helper; no AUR on Gentoo" ;;
+		limine*) echo "Arch Limine boot stack, intentionally not ported" ;;
+		mkinitcpio*) echo "Arch initramfs stack" ;;
+		snapper) echo "Btrfs snapshot stack rides the user's own setup" ;;
+		aether) echo "Arch ISO delivery tool" ;;
+		fcitx5-mozc | fcitx5-hangul | fcitx5-chewing | fcitx5-chinese-addons | fcitx5-table-extra)
+			echo "input-method stack is per-user on Gentoo (app-i18n/*); not in the base set" ;;
+		gliff | hype | monologue | owe | signed | omarchy-hyprland-titlebars)
+			echo "in-house app, recipe exists upstream, port pending (P3)" ;;
+		omarchy-power-profiles-daemon) echo "Arch-only CPPC fork; sys-power/power-profiles-daemon stays" ;;
+		*) return 1 ;;
+	esac
+}
+
+audit() { # audit <base.packages> <ebuild>
+	local list=$1 ebuild=$2 failures=0
+	[[ -r $list ]] || die "base.packages not readable: $list"
+	[[ -r $ebuild ]] || die "ebuild not readable: $ebuild"
+	local tsv=$repo_root/helpers/gentoo-packages.tsv
+	local map=$repo_root/gentoo/omarchy/omarchy/files/gentoo-bin/omarchy-pkg-add
+	[[ -r $tsv ]] || die "mapping table not readable: $tsv"
+	[[ -r $map ]] || die "runtime map not readable: $map"
+
+	while IFS= read -r name; do
+		[[ -n $name ]] || continue
+		[[ $name =~ ^[a-z0-9._+-]+$ ]] || die "implausible package name in base.packages: $name"
+		# Package names are [a-z0-9._+-]; a footprint must not match inside
+		# a longer name (grep -F "mapped" would match "runtime-mapped").
+		local footprint='(^|[^a-z0-9._+-])'"$name"'([^a-z0-9._+-]|$)'
+		# Footprint 1: the literal name (identity atoms, and the ebuild's
+		# comment table that documents a deliberate drop).
+		if grep -Eq "$footprint" "$ebuild"; then
+			continue
+		fi
+		# Footprint 2: the tsv's gentoo-name for this arch package.
+		local gname
+		gname=$(awk -F '\t' -v n="$name" '$1 == n { print $3; exit }' "$tsv")
+		if [[ -n $gname ]] && grep -Eq '(^|[^a-z0-9._+-])'"$gname"'([^a-z0-9._+-]|$)' "$ebuild"; then
+			continue
+		fi
+		# Footprint 3: the runtime map's atom for this arch package.
+		local atom
+		atom=$(sed -n "s/^[[:space:]]*\[$name\]=\(.*\)$/\1/p" "$map" | head -1)
+		if [[ -n $atom ]] && grep -Eq "(^|[^a-z0-9._+-])${atom}([^a-z0-9._+-]|$)" "$ebuild"; then
+			continue
+		fi
+		# Footprint 4: the explicit exclusion policy.
+		if reason=$(excluded "$name"); then
+			echo "note excluded ($reason): $name"
+			continue
+		fi
+		echo "FAIL unaccounted upstream base package (translate it in the ebuild, add it to a map, or extend the exclusion policy): $name"
+		((++failures))
+	done < "$list"
+
+	if ((failures)); then
+		echo "gentoo-base-packages-audit: $failures finding(s)" >&2
+		return 1
+	fi
+	echo "gentoo-base-packages-audit: clean ($(grep -cvE '^$|^#' "$list") upstream names accounted for)"
+}
+
+self_test() {
+	(
+	self=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
+	tmp=$(mktemp -d)
+	trap 'rm -rf "$tmp"' EXIT
+	t_failures=0
+	check() { # check <name> <got> <want>
+		if [[ "$2" == "$3" ]]; then
+			echo "ok   $1"
+		else
+			echo "FAIL $1: got [$2], want [$3]"
+			((++t_failures))
+		fi
+	}
+	# Fixture repo root: the audit resolves tsv + runtime map relative to
+	# its own repo root, so the fixture overlay mirrors that layout.
+	mkdir -p "$tmp/helpers" "$tmp/gentoo/omarchy/omarchy/files/gentoo-bin" "$tmp/bin"
+	cp "$self" "$tmp/bin/"
+	printf 'identity\tcat-a\tidentity\nmapped\tcat-b\trenamed-b\nmapped2\tcat-b\trenamed-missing\n' > "$tmp/helpers/gentoo-packages.tsv"
+	cat > "$tmp/gentoo/omarchy/omarchy/files/gentoo-bin/omarchy-pkg-add" <<'MAP'
+#!/bin/bash
+declare -A OMARCHY_ARCH_TO_GENTOO=(
+	[runtime-mapped]=cat-c/runtime-c
+)
+MAP
+	# The ebuild carries: an identity atom, a tsv rename, a runtime-mapped
+	# atom, a comment-documented drop, and an exclusion-policy name.
+	cat > "$tmp/ebuild" <<'EB'
+# comment table: drop-target is dropped on purpose
+RDEPEND="
+	cat-a/identity
+	cat-b/renamed-b
+	cat-c/runtime-c
+	drop-target
+"
+EB
+	outcome() { # outcome <list-content> -> exit status
+		printf '%s\n' "$1" > "$tmp/list"
+		"$tmp/bin/$(basename "$self")" --base-packages "$tmp/list" --ebuild "$tmp/ebuild"
+	}
+	rc=0; out=$(outcome "identity"$'\n'"mapped"$'\n'"runtime-mapped"$'\n'"drop-target"$'\n'"base-devel" 2>&1) || rc=$?
+	check "all footprints + policy pass" "$rc" 0
+	[[ $out == *"note excluded"* ]] && echo "ok   policy exclusion visible" \
+		|| { echo "FAIL policy exclusion not visible"; ((++t_failures)); }
+
+	rc=0; out=$(outcome "identity"$'\n'"mystery-pkg" 2>&1) || rc=$?
+	check "unaccounted name fails" "$rc" 1
+	grep -qF "mystery-pkg" <<<"$out" && echo "ok   finding names the package" \
+		|| { echo "FAIL finding does not name the package"; ((++t_failures)); }
+
+	# A tsv rename whose gentoo-name is missing from the ebuild must fail
+	# even though the arch name matches nothing: mapped2 -> renamed-missing.
+	rc=0; out=$(outcome "mapped2" 2>&1) || rc=$?
+	check "tsv rename without footprint fails" "$rc" 1
+
+	if ((t_failures == 0)); then
+		echo "all self-tests passed"
+	else
+		echo "self-test: $t_failures failure(s)" >&2
+		exit 1
+	fi
+	)
+}
+
+if [[ ${self_test:-} ]]; then
+	self_test
+	exit $?
+fi
+
+[[ -n $base_packages && -n $ebuild ]] || die "need --base-packages <file> --ebuild <ebuild> (or --self-test)"
+audit "$base_packages" "$ebuild"

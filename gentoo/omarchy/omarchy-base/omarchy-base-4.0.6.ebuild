@@ -31,6 +31,8 @@
 #   python-poetry-core -> dev-python/poetry-core
 #   qt6-imageformats -> dev-qt/qtimageformats
 #   tesseract-data-eng -> app-text/tessdata_fast
+#   gvfs-nfs / gvfs-smb -> gnome-base/gvfs[nfs] / [samba] (USE-flag split)
+#   noto-fonts-cjk / noto-fonts-emoji -> media-fonts/noto-cjk / noto-emoji
 #   woff2-font-awesome -> media-fonts/fontawesome
 #   gum, hyprland, localsend, mise-bin, quickshell, omasnap, tobi-try,
 #     ttfx, ttf-ia-writer, ttf-jetbrains-mono-nerd-basic, ufw-docker,
@@ -127,8 +129,10 @@ RDEPEND="
 		www-client/firefox
 		www-client/chromium
 	)
+	app-accessibility/superwhisper-bin
 	app-containers/docker
 	app-editors/neovim
+	app-editors/vim
 	app-i18n/fcitx
 	app-i18n/fcitx-gtk
 	app-i18n/fcitx-qt
@@ -147,7 +151,12 @@ RDEPEND="
 	dev-libs/libyaml
 	dev-python/poetry-core
 	dev-python/pygobject
+	dev-qt/qtbase:6
+	dev-qt/qtdeclarative:6
 	dev-qt/qtimageformats
+	dev-qt/qtmultimedia:6
+	dev-qt/qtsvg:6
+	dev-qt/qtwayland:6
 	dev-util/mise-bin
 	dev-util/try
 	dev-vcs/git
@@ -166,12 +175,15 @@ RDEPEND="
 	media-fonts/noto-emoji
 	media-gfx/imagemagick
 	media-gfx/omasnap
+	media-video/ffmpeg
 	net-dns/avahi
 	net-firewall/ufw-docker
 	net-misc/localsend-bin
 	net-wireless/bluez
 	sys-apps/gnome-disk-utility
+	sys-fs/disktree-bin
 	gui-apps/sddm
+	x11-apps/xsetroot
 	x11-misc/xdg-terminal-exec
 	x11-themes/gnome-themes-standard
 "
