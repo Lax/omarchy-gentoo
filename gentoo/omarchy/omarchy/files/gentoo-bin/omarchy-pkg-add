@@ -29,6 +29,11 @@ declare -A OMARCHY_ARCH_TO_GENTOO=(
 	[xorg-xsetroot]=x11-apps/xsetroot
 	# Gentoo's iHD VA-API driver carries the libva- prefix.
 	[intel-media-driver]=media-libs/libva-intel-media-driver
+	# The Intel trio maps 1:1, but migration 1793452544's vpl-gpu-rt only
+	# carries ~amd64: stable-keyword hosts need
+	#   media-libs/vpl-gpu-rt ~amd64   (and libva-intel-media-driver for
+	#   its 26.3+ dependency chain) in package.accept_keywords, or the
+	# migration fails outright.
 )
 
 if (($#)); then
