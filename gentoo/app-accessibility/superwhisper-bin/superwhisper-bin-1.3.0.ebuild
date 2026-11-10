@@ -1,4 +1,4 @@
-# arch-pkgver: 1.2.0
+# arch-pkgver: 1.3.0
 # Ported from pkgbuilds/superwhisper-bin. Upstream verifies the payload with
 # minisign before extracting and rewrites the bundled quickshell panel's QML
 # (Qt 6.12 grew a Color type that shadows Omarchy's palette singleton); both

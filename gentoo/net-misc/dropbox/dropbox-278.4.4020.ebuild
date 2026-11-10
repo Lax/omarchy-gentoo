@@ -1,4 +1,4 @@
-# arch-pkgver: 276.4.5325
+# arch-pkgver: 278.4.4020
 # Ported from pkgbuilds/dropbox. Arch generates the desktop entry with
 # gendesk at build time; a static entry ships in FILESDIR here. The tarball's
 # GPG signature is pinned to Dropbox's automatic signing key upstream.
