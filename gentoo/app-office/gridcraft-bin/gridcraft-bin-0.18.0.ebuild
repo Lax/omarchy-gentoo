@@ -1,4 +1,4 @@
-# arch-pkgver: 0.17.0
+# arch-pkgver: 0.18.0
 # Ported from pkgbuilds/gridcraft-bin.
 EAPI=8
 
