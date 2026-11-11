@@ -73,7 +73,12 @@ Four questions, in this order:
    Read the actual diffs of anything touched: an `arch=()` change can silently
    move a package in/out of scope, a `source=`/commit-pin change needs the
    ebuild's SRC_URI updated by hand, dep changes may need new
-   `helpers/gentoo-deps.map` rows.
+   `helpers/gentoo-deps.map` rows. A `source=` change can be pure asset
+   renaming (bambustudio `BambuStudio_ubuntu24.04-` → `-ubu24-`, 2026-11):
+   sync-gentoo bumps pkgver without it, the ebuild 404s, and the mirror
+   job's `failed fetching file` log line is the only detector. When a
+   recipe diff touches `source=`, diff the ebuild's SRC_URI basename
+   template against the recipe's before trusting the bump.
 4. **Structure changes** — new auxiliary file patterns (`.omarchy/` metadata,
    `.install` scripts, vendored patches/configs), new packaging models, new
    architectures. These are tooling work orders: if `bin/` or `helpers/`
@@ -90,7 +95,13 @@ bin/sync-gentoo             # apply what it can mechanically
 Exit 0 with a `note gum: ...` line is a known-harmless status note (gum has
 an ebuild but no upstream recipe; leave it). `skip` lines, by contrast, are
 work orders — the upstream-sync automation files an issue when it sees one
-(which is why that line is a note).
+(which is why that line is a note). sync-gentoo renames without pacman's
+vercmp too: absent it, both versions are mangled through `gentoo_version`
+and portage orders the PMS forms
+(`OMARCHY_NO_VERCMP_FALLBACK=1` restores unconditional refusal, for
+testing). A `skip` therefore means no comparator could order the pair —
+raw-differing strings that mangle equal (hash-only upstream bumps) return
+`?` — and is still a work order.
 
 ## Step 4 — Classify new packages
 
@@ -220,6 +231,11 @@ category/package shapes are hits. Moves recorded 2026-10: `sddm` →
 `gui-apps`, `xdg-desktop-portal` → `sys-apps`, `libdrm` → `x11-libs`,
 `libnotify` → `x11-libs`, `libsecret` → `app-crypt`, `which` → `sys-apps`.
 Fix `helpers/gentoo-deps.map` rows in the same change; they go stale too.
+2026-11: last-rited `app-arch/p7zip` → `app-arch/7zip` — the binary is
+`7zz`, not `7z`, so AppImage-unpacker ebuilds needed the invocation
+swapped along with the atom (t3code-bin, t3code-nightly-bin,
+bambustudio-bin all carried the dead one; only the resolve-scoped package
+fails in CI, grep the tree for the rest).
 
 ## Step 7 — Commit and push
 
@@ -278,6 +294,13 @@ sometimes asked to debug. Traps hit on 2026-10-27/28, in order of appearance:
 - `pkill -f <pattern>` matches your own `bash -c` command line: bracket one
   character (`pkill -f "omarchy-updat[e]"`) and never mention the plain
   string anywhere else in the same command — including a log path.
+- `masked or unavailable` on an installed package that stalls a Qt-style
+  slot-op rebuild chain usually means a stale
+  `/etc/portage/package.accept_keywords` glob pinning an old major line
+  (`=media-video/obs-studio-31*` masking the installed 32.2.2, 2026-11).
+  Unversioned atoms survive rotations — and fix the matching
+  `package.use` line in the same pass: a glob-pinned USE entry loses its
+  flags silently on every rotation.
 
 ## Tooling and skill maintenance
 
