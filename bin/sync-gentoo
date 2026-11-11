@@ -22,9 +22,13 @@
 #        sync-gentoo --check          Report drift only; exit 1 if any
 #        sync-gentoo --self-test
 #
-# Requirements: bash, vercmp (from pacman) for the upgrade-direction check.
-# Without vercmp, a version difference is still reported, but its direction
-# cannot be verified and sync mode refuses to rename (fail closed).
+# Requirements: bash, plus a version comparator for the upgrade-direction
+# check: pacman's vercmp when on PATH, otherwise portage ordering PMS forms
+# mangled by gentoo_version (a Gentoo host always has portage). With
+# neither, or on pairs that differ raw but mangle to the same PMS form
+# (hash-only upstream bumps), a version difference is still reported, but
+# its direction cannot be verified and sync mode refuses to rename (fail
+# closed). OMARCHY_NO_VERCMP_FALLBACK=1 suppresses the portage fallback.
 set -euo pipefail
 BUILD_ROOT=$(realpath "${BASH_SOURCE[0]%/*}/..")
 # Two roots: BUILD_ROOT is this management repo; upstream/ is the
@@ -42,7 +46,61 @@ GENTOO_ROOT="$BUILD_ROOT/gentoo"
 
 MARKER='# arch-pkgver:'
 
-have_vercmp() { command -v vercmp >/dev/null 2>&1; }
+# The upgrade-direction comparator. pacman's vercmp when on PATH; on hosts
+# without it, portage orders the PMS forms gentoo_version mangles both
+# sides into - the same converter that names the ebuilds, so the two never
+# disagree. portage.vercmp throws on bare suffixes (longstanding NoneType
+# quirk comparing _beta against a shorter suffix list), hence the digit
+# padding; anything still unorderable prints "?" and the caller refuses.
+_vercmp_py=
+_portage_vercmp_ready() {
+	if [[ -z "$_vercmp_py" ]]; then
+		local py
+		# python-exec's default python3 can be newer than portage's
+		# PYTHON_SINGLE_TARGET (2026-11 hosts: python3 is 3.15, portage
+		# is built for 3.13/3.14), so probe the usual interpreters.
+		for py in python3 python3.14 python3.13 python3.12 python3.11 python3.10; do
+			if command -v "$py" >/dev/null 2>&1 \
+				&& "$py" -c 'import portage.versions' >/dev/null 2>&1; then
+				_vercmp_py=$py
+				break
+			fi
+		done
+	fi
+	[[ -n "$_vercmp_py" ]]
+}
+
+have_vercmp() {
+	[[ -n "${OMARCHY_NO_VERCMP_FALLBACK:-}" ]] && return 1
+	command -v vercmp >/dev/null 2>&1 && return 0
+	_portage_vercmp_ready
+}
+
+# Same stdout contract as pacman's vercmp (-1/0/1, "?" when unordered).
+vcmp() {
+	if command -v vercmp >/dev/null 2>&1; then
+		command vercmp "$@"
+		return
+	fi
+	local a b
+	a=$(gentoo_version "$1")
+	b=$(gentoo_version "$2")
+	if [[ "$1" != "$2" && "$a" == "$b" ]]; then
+		echo "?"
+		return
+	fi
+	a=$(sed -E 's/_(alpha|beta|pre|rc)([^0-9]|$)/_\10\2/g' <<<"$a")
+	b=$(sed -E 's/_(alpha|beta|pre|rc)([^0-9]|$)/_\10\2/g' <<<"$b")
+	"$_vercmp_py" - "$a" "$b" <<'PY' || echo "?"
+import sys
+try:
+	from portage.versions import vercmp as v
+	r = v(sys.argv[1], sys.argv[2])
+except Exception:
+	sys.exit(1)
+print("-1" if r < 0 else ("1" if r > 0 else "0"))
+PY
+}
 
 marker_pkgver() {
 	# <ebuild file> -> the Arch version in its marker ("" when absent)
@@ -132,7 +190,7 @@ sync_one() {
 
 	local direction="?"
 	if have_vercmp; then
-		direction=$(vercmp "$current_pv" "$baseline")
+		direction=$(vcmp "$current_pv" "$baseline")
 	fi
 
 	if [[ "$direction" == "<" || "$direction" == "-1" ]]; then
@@ -144,7 +202,7 @@ sync_one() {
 		return 0
 	fi
 	if [[ "$direction" == "?" && $force_rename -eq 0 ]]; then
-		echo "skip  $category/$gname: $baseline -> $current_pv but vercmp is unavailable; refusing an unverifiable rename"
+		echo "skip  $category/$gname: $baseline -> $current_pv but no usable version comparator; refusing an unverifiable rename"
 		DRIFT=1
 		return 0
 	fi
@@ -425,6 +483,37 @@ SH
 		>"$fixture/gentoo/app-misc/fixture/fixture-26.9.6-r1.ebuild"
 	(cd "$fixture" && ./bin/sync-gentoo --check >/dev/null 2>&1)
 	check "hand-simplified PMS-valid name is not drift" "0" "$?"
+
+	# Without the shim, pacman's vercmp is usually absent and the portage
+	# fallback carries the rename; OMARCHY_NO_VERCMP_FALLBACK=1 restores
+	# the fail-closed refusal even where a comparator exists. Which
+	# comparator serves the rename depends on the host (CI's archlinux
+	# container has pacman's, Gentoo hosts get the fallback) - the refusal
+	# must hold on both, the rename on whichever is present.
+	local path_without_shim="${PATH#"$fixture/bin:"}"
+	PATH=$path_without_shim
+	if have_vercmp; then
+		printf '%s\n' "pkgname=fixture" "pkgver=26.9.7" "pkgrel=1" "arch=('any')" \
+			"license=('MIT')" "url='https://example.com'" \
+			>"$fixture/omarchy-pkgs/pkgbuilds/fixture/PKGBUILD"
+		(cd "$fixture" && ./bin/sync-gentoo fixture >/dev/null 2>&1)
+		check "no-shim rename keeps working" "yes" \
+			"$([[ -f "$fixture/gentoo/app-misc/fixture/fixture-26.9.7.ebuild" ]] && echo yes || echo no)"
+		printf '%s\n' "pkgname=fixture" "pkgver=26.9.8" "pkgrel=1" "arch=('any')" \
+			"license=('MIT')" "url='https://example.com'" \
+			>"$fixture/omarchy-pkgs/pkgbuilds/fixture/PKGBUILD"
+		(cd "$fixture" && OMARCHY_NO_VERCMP_FALLBACK=1 ./bin/sync-gentoo fixture >/dev/null 2>&1) || true
+		check "kill switch restores the refusal" "yes" \
+			"$([[ -f "$fixture/gentoo/app-misc/fixture/fixture-26.9.7.ebuild" && ! -f "$fixture/gentoo/app-misc/fixture/fixture-26.9.8.ebuild" ]] && echo yes || echo no)"
+		if ! command -v vercmp >/dev/null 2>&1; then
+			# Raw strings that differ but mangle to the same PMS form
+			# (hash-only upstream bumps) are unordered: the refusal must
+			# engage rather than bless a rename it cannot order.
+			check "hash-only bump stays unordered" "?" \
+				"$(vcmp 1.22.1.r200.gaaaaaaa 1.22.1.r200.gbbbbbbb)"
+		fi
+	fi
+	PATH="$fixture/bin:$PATH"
 
 	rm -rf "$fixture"
 
