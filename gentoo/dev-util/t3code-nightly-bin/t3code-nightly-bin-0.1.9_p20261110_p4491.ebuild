@@ -1,4 +1,4 @@
-# arch-pkgver: 0.1.9_nightly.20261110.4478
+# arch-pkgver: 0.1.9_nightly.20261110.4491
 # Copyright 2026, omarchy-gentoo overlay team
 # Distributed under the terms of the MIT license
 
@@ -56,7 +56,7 @@ RDEPEND="
 	sys-apps/systemd
 	x11-misc/xdg-utils
 "
-BDEPEND="app-arch/p7zip"
+BDEPEND="app-arch/7zip"
 RESTRICT="strip mirror"
 QA_PREBUILT="usr/lib/t3code-nightly/.*"
 
@@ -66,7 +66,7 @@ src_unpack() {
 	# match QEMU's binfmt registration when building ARM packages on an
 	# x86_64 host.
 	mkdir -p "${S}" || die
-	7z x "${DISTDIR}/${appimage}" -o"${S}" >/dev/null || die
+	7zz x "${DISTDIR}/${appimage}" -o"${S}" >/dev/null || die
 }
 
 src_install() {
