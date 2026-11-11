@@ -1,4 +1,4 @@
-# arch-pkgver: 0.33.4
+# arch-pkgver: 0.47.5
 # Ported from pkgbuilds/cua-driver-bin. Earlier 0.28.3..0.32.x releases
 # were held upstream for a screenshot regression; the hold lifted before
 # 0.33 once upstream fixed the screenshot path.
@@ -50,12 +50,19 @@ src_prepare() {
 		die "installer URLs must be the same length to rewrite in place"
 	fi
 
-	# In 0.28.1 the URL appears in the updater, the printed reinstall command,
-	# and two embedded copies of Skills/cua-driver/README.md. Rewrite all four
+	# In 0.47.5 the URL appears in the updater, the printed reinstall
+	# command, the update-check and quota messages, and embedded copies of
+	# the skill documents. The count differs by architecture because the
+	# linker folds identical embedded copies differently. Rewrite every one
 	# so the embedded instructions also defer to the package manager. Any
 	# other count means the release layout changed and needs review before
 	# packaging.
-	local expected=4 found
+	local expected found
+	if [[ ${ARCH} == amd64 ]]; then
+		expected=7
+	else
+		expected=10
+	fi
 	found=$(grep -obUaF "${_vendor_installer}" cua-driver | wc -l)
 	[[ ${found} -eq ${expected} ]] ||
 		die "expected the vendor installer URL ${expected} times in cua-driver, found ${found}"
