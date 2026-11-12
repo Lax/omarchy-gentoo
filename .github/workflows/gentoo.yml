@@ -337,6 +337,19 @@ jobs:
                 emerge-webrsync -q
                 test -d /var/db/repos/gentoo/profiles
               fi
+              # Tree-side major-transition window (openssl 3 -> 4, entered
+              # ::gentoo 2026-10-25): the stage3 image ships 3.5.9 with its
+              # consumers pinned to slot 0/3= while the daily-synced tree
+              # offers 4.1.0, and any autounmask USE flip that widens the
+              # graph into a fresh openssl merge schedules that merge at the
+              # best version - conflicting with the image-era pins, with
+              # backtracking exhausted in both plain and autounmask modes.
+              # Keep the smoke on 3.x while the window is open; drop this
+              # file once tree consumers no longer pin the old slot, or the
+              # day a smoke atom actually requires >=openssl-4 - whichever
+              # comes first turns this stale mask into a visible failure.
+              mkdir -p /etc/portage/package.mask
+              echo ">=dev-libs/openssl-4" > /etc/portage/package.mask/smoke-tree-window
               emerge --quiet -k dev-util/ccache dev-util/pkgdev
               cd /var/db/repos/omarchy
               pkgdev manifest --force
