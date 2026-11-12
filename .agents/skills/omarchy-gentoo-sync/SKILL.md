@@ -215,6 +215,16 @@ Gate classifications to read correctly:
 - `FAIL` on a package you didn't touch — investigate before assuming it's
   yours; check CI (`gh run list --workflow gentoo.yml`) for master parity.
 
+Smoke failure classes seen so far, all diagnosed in issue #57 (2026-11):
+resolver-stage USE flips abort emerge even with `--autounmask-continue` —
+the job now detects fresh `/etc/portage/package.use` writes and reruns once
+(227c165); and a stale `gentoo/stage3` image freezes the container's
+installed set against a daily-moving `::gentoo` tree — the first tree-side
+major bump (openssl 3 → 4) stranded slot-op consumers whose ebuilds had left
+the tree, an unresolvable slot conflict — the job now `docker pull`s before
+emerging (53f7b01). If the smoke dies again, read the failing emerge's own
+error block in the job log before assuming either is back.
+
 Dead atoms (2026-10 sddm/xdg-desktop-portal incidents): since 2026-11 the
 resolve pass verifies that every dep atom's `category/pn` exists in a repo
 the gate can see (`/var/db/repos/*`), reading the md5-cache dep fields that
