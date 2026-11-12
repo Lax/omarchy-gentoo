@@ -45,6 +45,9 @@ tooling cannot disagree with itself.
 - `bin/sync-gentoo` — reconciles ebuilds with the recipes; safe to re-run.
 - `bin/scaffold-ebuild` — mechanical PKGBUILD→ebuild skeleton generator.
 - `bin/gentoo-resolve` — the per-package resolution gate (docker stage3).
+- `CHANGELOG.md` — notable overlay changes by month (ports, skips/drops,
+  tooling and gate changes, incidents). Pin bumps and drift reconciliation
+  are not recorded; append to the newest month when such a change lands.
 
 ## The automation (what maintains itself)
 
