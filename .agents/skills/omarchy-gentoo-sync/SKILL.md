@@ -108,12 +108,24 @@ raw-differing strings that mangle equal (hash-only upstream bumps) return
 `bin/ai-port --list-open` prints the unported queue with skip annotations.
 Classification logic lives in `bin/ai-port` (`package_class`) — trust it:
 
-- `arch=(any)` or `x86_64` in `arch=()` → in scope → port (or skip with a
-  reason row in `helpers/gentoo-skip.tsv`).
-- `-bin` packages with only `aarch64` → stay OPEN as future work orders (the
-  overlay carries `~arm64` KEYWORDS on ~36 ebuilds; aarch64 is in scope).
-- Non-bin packages that are `aarch64`-only → class wave3, silently out of the
-  queue; no table row needed.
+- `arch=(any)` → in scope → port (or skip with a reason row in
+  `helpers/gentoo-skip.tsv`).
+- `-bin` packages (x86_64 or aarch64 published) → in scope. `-bin` with only
+  `aarch64` → stay OPEN as future work orders (the overlay carries `~arm64`
+  KEYWORDS on ~36 ebuilds; aarch64 is in scope).
+- Non-bin packages (any arch, `x86_64` included) → class wave3, silently out
+  of the queue. This is codified intent (`bin/ai-port`'s self-test pins
+  hyprland to wave3): the deferral keeps the queue readable while ~100
+  already-dispositioned source builds stay out. Porting one anyway is a
+  hand decision — do the port and add the `gentoo-packages.tsv` row yourself
+  (precedent: omacalc); the queue never tracks it and drift-checking starts
+  only after the row exists.
+- The trap this hides: a wave3 package upstream flips to `arch=(any)`
+  (yt-dlp, 2026-11-12) and suddenly enters the queue without anyone filing
+  it; treat new OPEN rows appearing after a pin bump as work orders, not
+  noise. A wave3 package also vanishes from every A/D/R disposition unless
+  you remember it exists — when a rename or re-pin touches a wave3 package
+  you care about, check the recipe by hand.
 - Before porting, check the skip table: `in-gentoo` (Gentoo monorepo has it),
   `arch-only`, `blocked` (hard blocker), `wave3`.
 
