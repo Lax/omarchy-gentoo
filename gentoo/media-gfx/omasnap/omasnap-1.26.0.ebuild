@@ -40,7 +40,12 @@ BDEPEND="
 "
 
 PATCHES=(
-	"${FILESDIR}"/${PN}-${PV}-optional-qttest.patch
+	# Version-qualified patch names do not travel with an ebuild rename:
+	# the automation renames the file, the patch stays behind, and the
+	# build dies on a missing file (omasnap 1.26.0, 2026-11). Keep the
+	# name unqualified; a source that outgrows the patch fails loudly at
+	# prepare with a mismatch instead.
+	"${FILESDIR}"/${PN}-optional-qttest.patch
 )
 
 src_configure() {
