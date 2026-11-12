@@ -1,17 +1,17 @@
 # arch-pkgver: 0.18.0
-# Ported from pkgbuilds/gridcraft-bin.
+# Ported from pkgbuilds/wordcraft-bin.
 EAPI=8
 
 inherit xdg
 
 # Prebuilt vendor binary: RESTRICT keeps portage from stripping the Rust
 # release build or mirroring the payload. Upstream's provides/conflicts on
-# "gridcraft" has no ::gentoo or overlay counterpart to conflict with.
-DESCRIPTION="Clean-room spreadsheet in pure Rust that opens and saves Excel workbooks"
-HOMEPAGE="https://github.com/storytold/gridcraft"
+# "wordcraft" has no ::gentoo or overlay counterpart to conflict with.
+DESCRIPTION="Clean-room word processor in pure Rust that opens and saves Word documents"
+HOMEPAGE="https://github.com/storytold/wordcraft"
 SRC_URI="
-	amd64? ( https://github.com/storytold/gridcraft/releases/download/v${PV}/gridcraft-${PV}-linux-x86_64.tar.gz )
-	arm64? ( https://github.com/storytold/gridcraft/releases/download/v${PV}/gridcraft-${PV}-linux-aarch64.tar.gz )
+	amd64? ( https://github.com/storytold/wordcraft/releases/download/v${PV}/wordcraft-${PV}-linux-x86_64.tar.gz )
+	arm64? ( https://github.com/storytold/wordcraft/releases/download/v${PV}/wordcraft-${PV}-linux-aarch64.tar.gz )
 "
 
 # Dual-licensed Rust code with bundled OFL fonts; the license files ship in
@@ -30,20 +30,20 @@ RDEPEND="
 "
 
 RESTRICT="strip mirror"
-QA_PREBUILT="usr/bin/gridcraft*"
+QA_PREBUILT="usr/bin/wordcraft*"
 
 if [[ ${ARCH} == amd64 ]]; then
-	S="${WORKDIR}/gridcraft-${PV}-linux-x86_64"
+	S="${WORKDIR}/wordcraft-${PV}-linux-x86_64"
 else
-	S="${WORKDIR}/gridcraft-${PV}-linux-aarch64"
+	S="${WORKDIR}/wordcraft-${PV}-linux-aarch64"
 fi
 
 src_install() {
-	dobin bin/gridcraft bin/gridcraft-cli
+	dobin bin/wordcraft bin/wordcraft-cli
 
 	# Vendor share tree: icons, desktop entry, AppStream metainfo, MIME
 	# database. doc/ is Portage's turf (dodoc below).
 	cp -a share "${ED}/usr/" || die
 	rm -rf "${ED}/usr/share/doc" || die
-	dodoc share/doc/gridcraft/*
+	dodoc share/doc/wordcraft/*
 }

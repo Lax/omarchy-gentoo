@@ -1,4 +1,4 @@
-# arch-pkgver: 0.4.0
+# arch-pkgver: 0.4.1
 # Ported from pkgbuilds/omacalc.
 EAPI=8
 
