@@ -353,7 +353,17 @@ jobs:
                 CONFIG_PROTECT="-*" FEATURES="-network-sandbox -sandbox buildpkg ccache" ACCEPT_LICENSE="* -@EULA" ACCEPT_KEYWORDS="~amd64" \
                   emerge --verbose --autounmask-write --autounmask-continue "${atom}"
               }
-              if ! smoke_deps; then
+              use_writes_since_marker() {
+                # Resolver-stage USE flips abort emerge even with
+                # --autounmask-continue: the flags are written to
+                # /etc/portage/package.use and the run exits 1 (the
+                # 2026-11-08..12 nightlies died here, five desktop-closure
+                # picks in a row). A config-reading rerun proceeds, so the
+                # marker timestamps tell a write-and-rerun apart from a real
+                # failure.
+                [[ -n "$(find /etc/portage/package.use -newer /tmp/smoke-autounmask-marker -print -quit 2>/dev/null)" ]]
+              }
+              smoke_deps_keyword_window() {
                 # A tree-side keyword window (the snapshot of the day ships a
                 # dependency only as keywordless) surfaces as a "(masked by:"
                 # list. Accept exactly those released versions and retry once
@@ -373,8 +383,25 @@ jobs:
                 printf "%s\n" "${masked}" | sed "s/^/=/; s/$/ **/" \
                   > /etc/portage/package.accept_keywords/smoke-tree-window
                 smoke_deps
+              }
+              touch /tmp/smoke-autounmask-marker
+              if ! smoke_deps; then
+                if use_writes_since_marker; then
+                  echo "autounmask wrote USE changes; rerunning with the written config"
+                  smoke_deps || smoke_deps_keyword_window
+                else
+                  smoke_deps_keyword_window
+                fi
               fi
-              smoke_atom
+              touch /tmp/smoke-autounmask-marker
+              if ! smoke_atom; then
+                if use_writes_since_marker; then
+                  echo "autounmask wrote USE changes; rerunning with the written config"
+                  smoke_atom
+                else
+                  exit 1
+                fi
+              fi
               # stage3 regenerates the md5-cache as root inside the mounted
               # tree; drop it so the persistent workspace stays checkoutable
               # by the runner user on the next job.
