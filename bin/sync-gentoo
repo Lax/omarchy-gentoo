@@ -269,6 +269,27 @@ sync_one() {
 	else
 		echo "bump  $category/$gname: renamed to $new_pv"
 	fi
+	# A version-qualified FILESDIR asset does not travel with a rename:
+	# omasnap 1.26.0 stranded its patch behind the old name and the build
+	# died at prepare - invisible to pkgcheck and the resolve pass. Walk
+	# the renamed ebuild's FILESDIR references (resolving ${PN}/${PV}/${P})
+	# and flag any that no longer resolve; the "by hand" wording routes
+	# this into the upstream-sync follow-up issue.
+	local ref name missing_refs=""
+	while read -r ref; do
+		name=${ref//'${PN}'/"$gname"}
+		name=${name//'${PV}'/"$new_pv"}
+		name=${name//'${P}'/"$gname-$new_pv"}
+		[[ "$name" =~ ^[A-Za-z0-9._/-]+$ ]] || continue
+		[[ -f "$dir/files/$name" ]] || missing_refs+="$name "
+	done < <(grep -oE '\$\{FILESDIR\}"?/?[^"[:space:]]+' "$target" \
+		| sed -E 's/^\$\{FILESDIR\}"?\///')
+	if [[ -n "$missing_refs" ]]; then
+		for name in $missing_refs; do
+			echo "bump  $category/$gname: renamed to $new_pv BUT files/$name is missing; update files/ by hand"
+		done
+		DRIFT=1
+	fi
 }
 
 cmd_sync() {
@@ -514,6 +535,42 @@ SH
 		fi
 	fi
 	PATH="$fixture/bin:$PATH"
+
+	# A version-qualified FILESDIR reference does not travel with a
+	# rename: the guard must flag the stranded asset (omasnap 1.26.0
+	# class) while still completing the rename, and stay quiet when the
+	# asset resolves under the new name.
+	rm -f "$fixture"/gentoo/app-misc/fixture/*.ebuild
+	mkdir -p "$fixture/gentoo/app-misc/fixture/files"
+	printf '%s\n' \
+		"# arch-pkgver: 26.9.8" \
+		"EAPI=8" \
+		'DESCRIPTION="fixture"' \
+		'PATCHES=( "${FILESDIR}"/${PN}-${PV}-fix.patch )' \
+		>"$fixture/gentoo/app-misc/fixture/fixture-26.9.8.ebuild"
+	printf 'patch\n' >"$fixture/gentoo/app-misc/fixture/files/fixture-26.9.8-fix.patch"
+	printf '%s\n' "pkgname=fixture" "pkgver=26.9.9" "pkgrel=1" "arch=('any')" \
+		"license=('MIT')" "url='https://example.com'" \
+		>"$fixture/omarchy-pkgs/pkgbuilds/fixture/PKGBUILD"
+	local guard_out
+	guard_out=$(cd "$fixture" && ./bin/sync-gentoo fixture 2>&1) || true
+	check "rename lands despite stranded FILESDIR asset" "yes" \
+		"$([[ -f "$fixture/gentoo/app-misc/fixture/fixture-26.9.9.ebuild" ]] && echo yes || echo no)"
+	check "stranded FILESDIR asset flagged" "1" \
+		"$(grep -c 'is missing; update files/ by hand' <<<"$guard_out")"
+	printf '%s\n' \
+		"# arch-pkgver: 26.9.9" \
+		"EAPI=8" \
+		'DESCRIPTION="fixture"' \
+		'PATCHES=( "${FILESDIR}"/${PN}-${PV}-fix.patch )' \
+		>"$fixture/gentoo/app-misc/fixture/fixture-26.9.9.ebuild"
+	printf 'patch\n' >"$fixture/gentoo/app-misc/fixture/files/fixture-26.9.10-fix.patch"
+	printf '%s\n' "pkgname=fixture" "pkgver=26.9.10" "pkgrel=1" "arch=('any')" \
+		"license=('MIT')" "url='https://example.com'" \
+		>"$fixture/omarchy-pkgs/pkgbuilds/fixture/PKGBUILD"
+	(cd "$fixture" && ./bin/sync-gentoo fixture >/dev/null 2>&1)
+	check "resolved FILESDIR asset stays quiet" "0" \
+		"$(cd "$fixture" && ./bin/sync-gentoo fixture 2>&1 | grep -c 'update files/ by hand')"
 
 	rm -rf "$fixture"
 
