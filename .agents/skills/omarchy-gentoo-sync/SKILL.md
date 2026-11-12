@@ -217,13 +217,20 @@ Gate classifications to read correctly:
 
 Smoke failure classes seen so far, all diagnosed in issue #57 (2026-11):
 resolver-stage USE flips abort emerge even with `--autounmask-continue` —
-the job now detects fresh `/etc/portage/package.use` writes and reruns once
-(227c165); and a stale `gentoo/stage3` image freezes the container's
-installed set against a daily-moving `::gentoo` tree — the first tree-side
-major bump (openssl 3 → 4) stranded slot-op consumers whose ebuilds had left
-the tree, an unresolvable slot conflict — the job now `docker pull`s before
-emerging (53f7b01). If the smoke dies again, read the failing emerge's own
-error block in the job log before assuming either is back.
+the job detects fresh `/etc/portage/package.use` writes and reruns once
+(227c165); and tree-side major transitions strand the stage3 image's
+installed consumers on old slot pins — the openssl 3 → 4 window (entered
+::gentoo 2026-10-25) made every autounmask-widened graph schedule a 4.1.0
+merge that the image-era `0/3=` pins reject, unresolvable by backtracking
+in either resolver mode. Two layered mitigations: `docker pull` keeps the
+image young (53f7b01), and a `package.mask/smoke-tree-window` file inside
+the container pins the smoke to the old openssl line until the tree
+consumers move (15d8b18) — the mask is the operative fix, the pull only
+shrinks the drift window. The mask is a dated, commented artifact in
+gentoo.yml: when a smoke atom starts requiring the masked versions, it
+fails visibly and the mask comes off. If the smoke dies again, read the
+failing emerge's own error block in the job log before assuming any of
+these is back.
 
 Dead atoms (2026-10 sddm/xdg-desktop-portal incidents): since 2026-11 the
 resolve pass verifies that every dep atom's `category/pn` exists in a repo
