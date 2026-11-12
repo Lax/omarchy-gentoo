@@ -264,6 +264,15 @@ jobs:
       - name: Remove stale smoke containers (a cancelled run leaves its stage3 up)
         run: docker ps -aq --filter label=omarchy-smoke | xargs -r docker rm -f
 
+      - name: Refresh the stage3 image (layers are deduplicated, so this is cheap)
+        # A stale local image freezes the container's installed set at an old
+        # snapshot while the mounted ::gentoo tree moves daily. The first
+        # tree-side major bump (openssl 3 -> 4, 2026-11-12) stranded the old
+        # consumers with slot-operator pins whose ebuilds had left the tree -
+        # an unresolvable slot conflict no retry can clear. Only a current
+        # image keeps the installed set rebuildable.
+        run: docker pull gentoo/stage3
+
       - name: Manifest, digest-verify, resolve, and emerge the package of the day (stage3)
         run: |
           # The host ::gentoo tree is kept current by the local emaint; the
