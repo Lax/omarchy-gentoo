@@ -4,3 +4,4 @@
 .zcode/
 
 __pycache__/
+site/dist/

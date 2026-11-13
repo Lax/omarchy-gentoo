@@ -1,0 +1,297 @@
+/* Omarchy on Gentoo — site styles.
+ *
+ * Themes are CSS custom property sets on <html data-theme>; site.js
+ * cycles them with the T key, mirroring omarchy.org's "pick a theme,
+ * change everything". Palette per assets/logo/README.md: omarchy greens
+ * (#daecc6/#9ece6a) and gentoo purples (#8e77c2/#54487a).
+ */
+
+:root,
+:root[data-theme="omarchy"] {
+  --bg: #0e120c;
+  --bg-soft: #131a0f;
+  --card: #161d12;
+  --fg: #d8e4c8;
+  --dim: #8a9878;
+  --accent: #9ece6a;
+  --accent-bright: #daecc6;
+  --border: #243020;
+  --code-bg: #121810;
+  --code-fg: #c4d4ac;
+}
+
+:root[data-theme="gentoo"] {
+  --bg: #121016;
+  --bg-soft: #181420;
+  --card: #1c1726;
+  --fg: #ddd6ea;
+  --dim: #948bb0;
+  --accent: #8e77c2;
+  --accent-bright: #c9bce8;
+  --border: #2b2438;
+  --code-bg: #181322;
+  --code-fg: #cfc4e6;
+}
+
+:root[data-theme="daylight"] {
+  --bg: #f4f2ea;
+  --bg-soft: #eeece2;
+  --card: #faf9f3;
+  --fg: #262b1e;
+  --dim: #6b7359;
+  --accent: #43690f;
+  --accent-bright: #2f4d13;
+  --border: #d8d4c2;
+  --code-bg: #e9e7da;
+  --code-fg: #333a28;
+}
+
+* { box-sizing: border-box; }
+
+html {
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0 auto;
+  max-width: 46rem;
+  padding: 0 1.25rem;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-bright); text-decoration: underline; }
+
+h1, h2, h3, h4 {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--fg);
+}
+h1 { font-size: 1.6rem; margin: 2.2rem 0 1rem; }
+h2 { font-size: 1.25rem; margin: 2.2rem 0 0.8rem; padding-bottom: 0.35rem; border-bottom: 1px solid var(--border); }
+h3 { font-size: 1.02rem; margin: 1.6rem 0 0.6rem; }
+
+p { margin: 0.7rem 0; }
+ul, ol, dl { padding-left: 1.4rem; }
+li { margin: 0.3rem 0; }
+
+code, kbd, pre, .stat-n {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+code {
+  background: var(--code-bg);
+  color: var(--code-fg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.08em 0.35em;
+  font-size: 0.88em;
+}
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.8rem 1rem;
+  overflow-x: auto;
+  line-height: 1.5;
+}
+pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.88rem;
+}
+kbd {
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0 0.4em;
+  font-size: 0.85em;
+  background: var(--bg-soft);
+}
+
+hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+
+blockquote {
+  margin: 1rem 0;
+  padding: 0.2rem 1rem;
+  border-left: 3px solid var(--accent);
+  color: var(--dim);
+}
+
+table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+th, td { border: 1px solid var(--border); padding: 0.4rem 0.7rem; text-align: left; }
+th { background: var(--bg-soft); font-family: inherit; }
+
+/* topbar ---------------------------------------------------------------- */
+
+.topbar {
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(6px);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.nav {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 0.6rem 1.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem 0.9rem;
+}
+.nav a {
+  color: var(--dim);
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+  padding: 0.15rem 0;
+}
+.nav a:hover { color: var(--fg); text-decoration: none; }
+.nav a.active { color: var(--accent); }
+.nav a.nav-button {
+  border: 1px solid var(--accent);
+  border-radius: 5px;
+  padding: 0.15rem 0.6rem;
+  color: var(--accent);
+}
+.nav a.nav-button:hover { background: var(--accent); color: var(--bg); }
+.nav a.nav-ext { margin-left: auto; }
+#theme-toggle {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--dim);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0.12rem 0.5rem;
+}
+#theme-toggle:hover { color: var(--accent); border-color: var(--accent); }
+
+.skip {
+  position: absolute;
+  left: -9999px;
+  background: var(--card);
+  color: var(--fg);
+  padding: 0.4rem 0.8rem;
+  border-radius: 0 0 6px 0;
+}
+.skip:focus { left: 0; top: 0; z-index: 99; }
+
+/* hero (landing only) --------------------------------------------------- */
+
+.hero { text-align: center; padding: 3.5rem 0 1rem; }
+.hero picture, .hero img { display: inline-block; }
+.hero img { width: min(560px, 92%); height: auto; }
+.hero-tag { font-size: 1.05rem; max-width: 34rem; margin: 1.4rem auto 0.4rem; }
+.hero-badge {
+  color: var(--dim);
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  margin-top: 0.3rem;
+}
+
+/* status strip ---------------------------------------------------------- */
+
+.status-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  justify-content: center;
+  margin: 1.8rem 0 0.4rem;
+}
+.stat {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.7rem 1.3rem;
+  text-align: center;
+  min-width: 8.5rem;
+}
+.stat-n { display: block; font-size: 1.7rem; font-weight: 700; color: var(--accent); }
+.stat-l { display: block; color: var(--dim); font-size: 0.78rem; }
+.status-pin {
+  text-align: center;
+  color: var(--dim);
+  font-size: 0.82rem;
+  margin-bottom: 2rem;
+}
+
+/* landing cards ---------------------------------------------------------- */
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.8rem;
+  margin: 1.6rem 0;
+}
+.card {
+  display: block;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.1rem;
+  color: var(--fg);
+}
+.card:hover { border-color: var(--accent); text-decoration: none; }
+.card h3 { margin: 0 0 0.4rem; color: var(--accent); font-size: 0.95rem; }
+.card p { margin: 0; color: var(--dim); font-size: 0.88rem; }
+
+.news-preview {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.4rem 1.2rem;
+  margin: 1.6rem 0;
+}
+.news-preview-head { color: var(--dim); font-size: 0.85rem; }
+.news-preview ul { margin: 0.4rem 0 0.9rem; }
+
+/* coverage page ---------------------------------------------------------- */
+
+.pkg-table {
+  border-left: 2px solid var(--border);
+  padding-left: 1rem;
+  margin: 0.6rem 0 1.2rem;
+}
+.pkg-row { padding: 0.12rem 0; font-size: 0.92rem; }
+.pkg-arch-name { color: var(--dim); font-size: 0.8rem; }
+
+.skip-list dt { margin-top: 0.7rem; }
+.skip-list dd { margin: 0.15rem 0 0 1.4rem; color: var(--dim); font-size: 0.92rem; }
+
+.backlog-list { line-height: 2.1; }
+
+/* news ------------------------------------------------------------------- */
+
+.news-month { border-bottom: 1px solid var(--border); padding-bottom: 1rem; }
+.news-month h2 { border-bottom: none; margin-bottom: 0.4rem; }
+
+/* manual chrome ---------------------------------------------------------- */
+
+.crumb {
+  color: var(--dim);
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  margin: 1.6rem 0 0;
+}
+
+/* footer ----------------------------------------------------------------- */
+
+.footer {
+  border-top: 1px solid var(--border);
+  margin-top: 3.5rem;
+  padding: 1.4rem 1.25rem 2.2rem;
+  color: var(--dim);
+  font-size: 0.82rem;
+  max-width: 46rem;
+}
+.footer p { margin: 0.3rem 0; }
+
+@media (max-width: 40rem) {
+  .nav a.nav-ext { margin-left: 0; }
+  .hero { padding-top: 2.2rem; }
+}
