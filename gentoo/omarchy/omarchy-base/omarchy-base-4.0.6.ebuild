@@ -37,6 +37,9 @@
 #   gum, hyprland, localsend, mise-bin, quickshell, omasnap, tobi-try,
 #     ttfx, ttf-ia-writer, ttf-jetbrains-mono-nerd-basic, ufw-docker,
 #     xdg-terminal-exec -> this overlay (see helpers/gentoo-packages.tsv)
+#   aether -> x11-themes/aether-bin (upstream ships release binaries)
+#   yaru-icon-theme -> x11-themes/yaru-icon-theme (the icon split of the
+#     ubuntu/yaru monorepo; what Omarchy themes reference via icons.theme)
 EAPI=8
 
 DESCRIPTION="The Omarchy full-install package set (meta package)"
@@ -185,11 +188,12 @@ RDEPEND="
 	gui-apps/sddm
 	x11-apps/xsetroot
 	x11-misc/xdg-terminal-exec
+	x11-themes/aether-bin
 	x11-themes/gnome-themes-standard
+	x11-themes/yaru-icon-theme
 "
 
 # Dropped from upstream's list, with reasons:
-#   aether: Omarchy in-house tool, no ::gentoo package; port pending
 #   asdcontrol: Omarchy in-house tool, no ::gentoo package; port pending
 #   brightnessctl: removed from ::gentoo (2026 tree); port pending
 #   cliamp: Omarchy in-house tool, no ::gentoo package; port pending
@@ -219,5 +223,4 @@ RDEPEND="
 #   usage: Omarchy in-house tool, no ::gentoo package; port pending
 #   wtype: removed from ::gentoo (2026 tree); port pending
 #   xdg-desktop-portal-hyprland: removed from ::gentoo (2026 tree); the omarchy core carries this dependency
-#   yaru-icon-theme: removed from ::gentoo (2026 tree); port pending
 #   yay: Arch AUR helper; the omarchy core ships the portage equivalents

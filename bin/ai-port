@@ -213,7 +213,8 @@ cmd_verify() {
 
   if command -v docker >/dev/null 2>&1; then
     echo "-- docker stage3 gates (same runner as CI: bin/gentoo-resolve) --"
-    # Mirror CI's lint job: mount the host-synced ::gentoo tree read-only when
+    # Mirror CI's lint job: mount the provider allowlist the dead-atom
+    # check reads, and the host-synced ::gentoo tree read-only when
     # one exists, so the gates still run on networks where gentoo.org (and
     # therefore webrsync) is unreachable. Without a host tree the webrsync
     # path below is the only fixture.
@@ -222,6 +223,7 @@ cmd_verify() {
     docker run --rm \
       -v "$BUILD_ROOT/gentoo:/var/db/repos/omarchy" \
       -v "$BUILD_ROOT/bin/gentoo-resolve:/usr/local/bin/gentoo-resolve:ro" \
+      -v "$BUILD_ROOT/bin/gentoo-provider-atoms.tsv:/usr/local/share/omarchy/provider-atoms.tsv:ro" \
       ${host_tree:+-v "$host_tree:/var/db/repos/gentoo:ro"} \
       gentoo/stage3 bash -lc '
         set -eu
@@ -286,7 +288,7 @@ cmd_self_test() {
   check "class: cursor-bin is bin" "bin" "$(package_class cursor-bin)"
   check "class: hyprland is wave3" "wave3" "$(package_class hyprland)"
   check "class: linux-omarchy is wave3" "wave3" "$(package_class linux-omarchy)"
-  check "skip: yaru in-gentoo" "in-gentoo" "$(skip_class yaru-icon-theme)"
+  check "skip: python-sounddevice in-gentoo" "in-gentoo" "$(skip_class python-sounddevice)"
   check "skip: spotify blocked" "blocked" "$(skip_class spotify)"
   check "row: cursor-bin" $'dev-util\tcursor-bin' "$(gentoo_row cursor-bin)"
   check "queue: omarchy-keyring not open" "0" \

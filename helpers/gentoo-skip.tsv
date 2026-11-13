@@ -8,7 +8,6 @@
 # bin/ai-port --list-open (and the nightly coverage job, and bin/site-build)
 # reads this file, so a
 # package listed here never shows up as "unported" work.
-yaru-icon-theme	in-gentoo	Gentoo ships x11-themes/yaru-icon-theme
 nautilus-open-any-terminal	in-gentoo	Gentoo ships nautilus-open-any-terminal (with caja variant)
 python-sounddevice	in-gentoo	Gentoo ships dev-python/python-sounddevice
 omarchy-keyring	arch-only	pacman keyring payload; meaningless under Portage
