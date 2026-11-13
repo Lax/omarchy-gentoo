@@ -1,0 +1,81 @@
+name: Site
+
+# Builds and deploys the documentation site (bin/site-build). The site is
+# generated at build time from the same tree the gates verify — the
+# helpers tables, the changelog, the overlay README, ai-port's queue — so
+# every data-bearing page rebuilds whenever any of those sources moves,
+# including the submodule bumps upstream-sync pushes every three hours.
+# Deploys to GitHub Pages on master; PRs only build (no deploy, no
+# secrets). The Pages artifact is the repository's single artifact, and
+# its retention is capped by the Actions quota policy (retention-days ≤ 7).
+on:
+  push:
+    branches: [master]
+    paths:
+      - site/**
+      - bin/site-build
+      - helpers/gentoo-packages.tsv
+      - helpers/gentoo-skip.tsv
+      - gentoo/README.md
+      - CHANGELOG.md
+      - assets/logo/**
+      - omarchy-pkgs
+      - .github/workflows/site.yml
+  pull_request:
+    paths:
+      - site/**
+      - bin/site-build
+      - helpers/gentoo-packages.tsv
+      - helpers/gentoo-skip.tsv
+      - gentoo/README.md
+      - CHANGELOG.md
+      - assets/logo/**
+      - omarchy-pkgs
+      - .github/workflows/site.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: site-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Self-test, then build
+        run: |
+          set -euo pipefail
+          bin/site-build --self-test
+          bin/site-build
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/dist
+          retention-days: 7
+
+  deploy:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

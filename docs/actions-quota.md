@@ -47,8 +47,10 @@ uncached cold starts (webrsync + pkgdev install + pkgcheck).
    report/close-loop 10, tooling self-tests 15; smoke 420 on the
    self-hosted runner (unguarded hangs were observed: a 1,441-minute
    run in the measurement window).
-5. **No artifacts, no larger runners** — nothing uploads artifacts, no
-   runner label outside `ubuntu-24.04` and the self-hosted pair.
+5. **One artifact, no larger runners** — the single artifact is the
+   GitHub Pages deploy artifact (`site.yml`, added 2026-11: static HTML,
+   `retention-days: 7`). No runner label outside `ubuntu-24.04` and the
+   self-hosted pair.
 
 Expected effect: a typical upstream-bump lint drops from ~95 to
 ~15-25 minutes; monthly cloud usage from ~6-9k to ~1.5-2.5k minutes.
@@ -56,11 +58,12 @@ Expected effect: a typical upstream-bump lint drops from ~95 to
 ## Monitoring
 
 A monthly automation re-checks the invariants: both repos still public,
-no artifacts present, no runner labels outside the allowlist, billing
-API reachable with a `user`-scoped token (reports rather than fails
-when the token lacks the scope). Any billed Actions minute, any
-non-public repo, any new runner type is a regression to investigate the
-same day.
+no artifacts present except the `github-pages` deploy artifact (any
+other artifact, or a Pages retention above 7 days, is a regression), no
+runner labels outside the allowlist, billing API reachable with a
+`user`-scoped token (reports rather than fails when the token lacks the
+scope). Any billed Actions minute, any non-public repo, any new runner
+type is a regression to investigate the same day.
 
 ## Degradation runbook
 

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="omarchy">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="{{desc}}">
+<title>{{title}}</title>
+<link rel="icon" type="image/png" sizes="32x32" href="{{prefix}}assets/omarchy-gentoo-mark-32.png">
+<link rel="icon" type="image/png" sizes="64x64" href="{{prefix}}assets/omarchy-gentoo-mark-64.png">
+<link rel="apple-touch-icon" href="{{prefix}}assets/omarchy-gentoo-mark-128.png">
+<link rel="stylesheet" href="{{prefix}}assets/site.css">
+<script>try{var t=localStorage.getItem("og-theme");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+</head>
+<body class="{{home_class}}">
+<a class="skip" href="#content">skip to content</a>
+<header class="topbar">
+  <nav class="nav" aria-label="Site">
+{{nav}}
+  </nav>
+</header>
+<main id="content" class="page">
+{{hero}}
+{{crumb}}
+<article>
+{{content}}
+</article>
+</main>
+<footer class="footer">
+  <p>Omarchy on Gentoo — an unofficial community overlay. Omarchy itself lives
+  at <a href="https://omarchy.org">omarchy.org</a> (its
+  <a href="https://omarchy.org/manual/">manual</a> covers using the desktop);
+  Gentoo questions belong to the <a href="https://wiki.gentoo.org">Gentoo Wiki</a>.</p>
+  <p>Generated from the
+  <a href="https://github.com/Lax/omarchy-gentoo">omarchy-gentoo</a> tree ·
+  {{year}} · press <kbd>T</kbd> to cycle themes</p>
+</footer>
+<script src="{{prefix}}assets/site.js"></script>
+</body>
+</html>

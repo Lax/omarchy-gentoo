@@ -22,9 +22,10 @@ is archived and read-only — do not add it to Portage.
 ```
 omarchy-pkgs/  submodule: omacom/omarchy-pkgs (the Arch recipes, pinned)
 gentoo/        the ebuild overlay (published to Lax/omarchy-overlay)
-bin/           ai-port, sync-gentoo, scaffold-ebuild, gentoo-resolve
+bin/           ai-port, sync-gentoo, scaffold-ebuild, gentoo-resolve, site-build
 helpers/       conversion rules and ported/skipped bookkeeping
-.github/       three workflows: gates, tooling self-tests, upstream sync
+site/          the documentation site (markdown content; bin/site-build builds it)
+.github/       four workflows: gates, tooling self-tests, upstream sync, docs site
 ```
 
 ## How it maintains itself

@@ -1,0 +1,685 @@
+#!/usr/bin/env python3
+"""bin/site-build -- build the omarchy-gentoo documentation site.
+
+Markdown in, static HTML out. Zero network, zero package installs: the
+only renderer is the vendored python-markdown under site/vendor/ (BSD-3,
+see site/vendor/Markdown-LICENSE). Every number the site shows (package
+counts, the upstream pin, the news entries) is generated at build time
+from the same tree the gates verify, so the site cannot drift from the
+overlay without the build failing first.
+
+Usage:
+    bin/site-build              build into site/dist/
+    bin/site-build --self-test  offline checks; builds into a temp dir and
+                                asserts everything the build promises
+
+Environment:
+    OMARCHY_SITE_BASE  absolute subpath the site is deployed under, e.g.
+                       /omarchy-gentoo/ (leading+trailing slash). All page
+                       links are root-relative and work under any subpath;
+                       only the 404 page needs the base (GitHub Pages
+                       serves it at the missing URL, so its links must be
+                       absolute).
+"""
+
+import html
+import os
+import posixpath
+import re
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+SITE = ROOT / "site"
+DIST = SITE / "dist"
+REPO_URL = "https://github.com/Lax/omarchy-gentoo"
+DEFAULT_DESC = "The Omarchy desktop for Gentoo Linux, as a source-based ebuild overlay."
+
+# Every markdown page: source file, output path. Manual pages carry their
+# number in the source name (ordering + repo readability) and a clean slug
+# in the URL (stable if pages reorder).
+MANUAL_PAGES = [
+    ("01-about.md", "about", "About"),
+    ("02-install.md", "install", "Install"),
+    ("03-packages.md", "packages", "Packages"),
+    ("04-differences.md", "differences", "Differences from Arch Omarchy"),
+    ("05-troubleshooting.md", "troubleshooting", "Troubleshooting"),
+    ("06-faq.md", "faq", "FAQ"),
+    ("07-developing.md", "developing", "Developing"),
+]
+PAGES = [
+    ("content/index.md", "index.html"),
+    ("content/manual/00-index.md", "manual/index.html"),
+] + [
+    (f"content/manual/{name}", f"manual/{slug}/index.html")
+    for name, slug, _ in MANUAL_PAGES
+] + [
+    ("content/news.md", "news/index.html"),
+]
+# The top navigation: label, output path it points at, styled as button.
+NAV = [
+    ("Home", "index.html", False),
+    ("Manual", "manual/index.html", False),
+    ("Packages", "manual/packages/index.html", False),
+    ("News", "news/index.html", False),
+    ("Developing", "manual/developing/index.html", False),
+    ("Install", "manual/install/index.html", True),
+]
+ASSETS = [
+    "omarchy-gentoo-lockup-dark.svg",
+    "omarchy-gentoo-lockup-light.svg",
+    "omarchy-gentoo-mark-32.png",
+    "omarchy-gentoo-mark-64.png",
+    "omarchy-gentoo-mark-128.png",
+]
+
+# Facts the hand-written pages must keep stating (invariant greps: the
+# self-test fails if a page stops carrying one of these).
+INVARIANTS = {
+    "content/index.md": [
+        "eselect repository add omarchy git https://github.com/Lax/omarchy-overlay.git",
+    ],
+    "content/manual/02-install.md": [
+        "emaint sync -r omarchy",
+        "@@include gentoo/README.md@@",
+    ],
+    "content/manual/04-differences.md": ["omarchy-pkg-add"],
+    "content/manual/07-developing.md": [
+        "upstream-sync",
+        "gentoo.yml",
+        "gentoo-tooling.yml",
+        "site.yml",
+        "bin/ai-port",
+        "bin/sync-gentoo",
+        "bin/gentoo-resolve",
+        "bin/scaffold-ebuild",
+    ],
+}
+
+SKIP_CLASS_LABELS = [
+    ("in-gentoo", "already in ::gentoo"),
+    ("arch-only", "Arch-only payload"),
+    ("blocked", "blocked, with cause"),
+    ("wave3", "planned, later wave"),
+]
+
+
+def die(msg):
+    print(f"site-build: {msg}", file=sys.stderr)
+    sys.exit(1)
+
+
+def render_markdown(text):
+    sys.path.insert(0, str(SITE / "vendor"))
+    try:
+        import markdown
+    except ImportError:
+        die("the vendored python-markdown is missing under site/vendor/")
+    return markdown.markdown(
+        text,
+        extensions=[
+            "markdown.extensions.fenced_code",
+            "markdown.extensions.tables",
+            "markdown.extensions.toc",
+        ],
+    )
+
+
+# ---------------------------------------------------------------------------
+# data gathering (all counts come from the tree, never from prose)
+# ---------------------------------------------------------------------------
+
+def read_tsv(path, columns):
+    rows = []
+    for line in (ROOT / path).read_text().splitlines():
+        if not line.strip() or line.startswith("#"):
+            continue
+        fields = line.split("\t")
+        if len(fields) != columns:
+            die(f"{path}: expected {columns} tab-separated columns, got {len(fields)}: {line!r}")
+        rows.append(tuple(fields))
+    return rows
+
+
+def coverage():
+    """Shipped and skipped, straight from the bookkeeping tables: shipped
+    = packages.tsv rows (each must have its ebuild directory — the
+    tooling gate enforces both directions, so a miss is a real
+    inconsistency, not a transient state); skipped = gentoo-skip.tsv."""
+    shipped = []
+    for arch, category, gname in read_tsv("helpers/gentoo-packages.tsv", 3):
+        pkgdir = ROOT / "gentoo" / category / gname
+        if not pkgdir.is_dir() or not list(pkgdir.glob("*.ebuild")):
+            die(f"packages.tsv row {arch} -> {category}/{gname} has no ebuild")
+        shipped.append((arch, category, gname))
+    return shipped, read_tsv("helpers/gentoo-skip.tsv", 3)
+
+
+_AI_PORT_QUEUE = None
+
+
+def port_queue():
+    """The open port queue, parsed from `bin/ai-port --list-open` itself.
+    Not recomputed here on purpose: ai-port owns the classification rules
+    (package classes, per-PKGBUILD scope), and a second implementation in
+    this script would drift from it."""
+    global _AI_PORT_QUEUE
+    if _AI_PORT_QUEUE is None:
+        run = subprocess.run(
+            ["bin/ai-port", "--list-open"], cwd=ROOT, capture_output=True, text=True
+        )
+        if run.returncode != 0:
+            die(f"bin/ai-port --list-open failed: {run.stderr.strip()[:300]}")
+        _AI_PORT_QUEUE = [
+            fields[1]
+            for line in run.stdout.splitlines()
+            if line.rstrip().endswith("OPEN")
+            for fields in [line.split()]
+            if len(fields) >= 2
+        ]
+    return _AI_PORT_QUEUE
+
+
+def upstream_pin():
+    """The pinned omarchy-pkgs commit and its date, straight from git."""
+    ls = subprocess.run(
+        ["git", "ls-tree", "HEAD", "omarchy-pkgs"], cwd=ROOT, capture_output=True, text=True
+    )
+    if ls.returncode != 0:
+        die(f"git ls-tree failed: {ls.stderr.strip()}")
+    sha = ls.stdout.split()[2]
+    log = subprocess.run(
+        ["git", "log", "-1", "--format=%cs", "--", "omarchy-pkgs"],
+        cwd=ROOT, capture_output=True, text=True,
+    )
+    if log.returncode != 0:
+        die(f"git log failed: {log.stderr.strip()}")
+    return sha[:12], log.stdout.strip()
+
+
+def parse_changelog():
+    text = (ROOT / "CHANGELOG.md").read_text()
+    parts = re.split(r"^## (\d{4}-\d{2})\n", text, flags=re.M)
+    preamble = parts[0].strip()
+    if preamble.startswith("# "):
+        preamble = preamble.split("\n", 1)[1].strip()
+    months = list(zip(parts[1::2], parts[2::2]))
+    if not months:
+        die("CHANGELOG.md has no '## YYYY-MM' sections")
+    return preamble, months
+
+
+# ---------------------------------------------------------------------------
+# generated fragments (the site's anti-drift core: data rendered at build
+# time from the same files the gates check)
+# ---------------------------------------------------------------------------
+
+def generate_status():
+    shipped, skipped = coverage()
+    sha, date = upstream_pin()
+    stats = [
+        (str(len(shipped)), "packages shipped"),
+        (str(len(skipped)), "skipped, with cause"),
+        (str(len(port_queue())), "open in the port queue"),
+    ]
+    cells = "".join(
+        f'<div class="stat"><span class="stat-n">{n}</span><span class="stat-l">{l}</span></div>'
+        for n, l in stats
+    )
+    return (
+        f'<div class="status-strip">{cells}</div>\n'
+        f'<p class="status-pin">tracking upstream <code>omacom/omarchy-pkgs</code> '
+        f'<a href="{REPO_URL}/commit/{sha}"><code>{sha}</code></a> ({date}), '
+        f"republished to the overlay on every change.</p>"
+    )
+
+
+def generate_packages():
+    shipped, skipped = coverage()
+    backlog = port_queue()
+    out = ['<div class="coverage">']
+
+    out.append(f'<h2 id="shipped">Shipped ({len(shipped)})</h2>')
+    out.append(
+        "<p>Every Arch package with a Gentoo ebuild, by category. Links go to "
+        "the ebuild directory in the development tree, which is exactly what "
+        "CI republishes to the overlay.</p>"
+    )
+    by_category = {}
+    for arch, category, gname in shipped:
+        by_category.setdefault(category, []).append((arch, gname))
+    for category in sorted(by_category):
+        out.append(f'<h3 id="cat-{category}">{html.escape(category)}</h3>')
+        out.append('<div class="pkg-table">')
+        for arch, gname in sorted(by_category[category]):
+            href = f"{REPO_URL}/tree/master/gentoo/{category}/{gname}"
+            atom = f"{category}/{gname}"
+            same = "" if arch == gname else f" <span class=\"pkg-arch-name\">(arch: {html.escape(arch)})</span>"
+            out.append(
+                f'<div class="pkg-row"><a href="{href}">{html.escape(atom)}</a>{same}</div>'
+            )
+        out.append("</div>")
+
+    out.append(f'<h2 id="skipped">Intentionally skipped ({len(skipped)})</h2>')
+    out.append(
+        "<p>Arch packages deliberately not ported, each with its cause — a "
+        "package listed here never shows up as missing work (the nightly "
+        "coverage job reads the same table).</p>"
+    )
+    for klass, label in SKIP_CLASS_LABELS:
+        rows = [(n, r) for n, k, r in skipped if k == klass]
+        if not rows:
+            continue
+        out.append(f"<h3>{html.escape(label)} ({len(rows)})</h3>")
+        out.append('<dl class="skip-list">')
+        for name, reason in rows:
+            out.append(f"<dt><code>{html.escape(name)}</code></dt><dd>{html.escape(reason)}</dd>")
+        out.append("</dl>")
+
+    out.append(f'<h2 id="backlog">Open in the port queue ({len(backlog)})</h2>')
+    out.append(
+        "<p>Upstream recipes with neither an ebuild nor a skip entry — the "
+        "live porting queue, identical to what <code>bin/ai-port --list-open</code> "
+        "reports and what the nightly backlog issue carries.</p>"
+    )
+    if backlog:
+        out.append('<p class="backlog-list">')
+        out.append(", ".join(f"<code>{html.escape(name)}</code>" for name in backlog))
+        out.append("</p>")
+    else:
+        out.append("<p>Nothing open: every upstream recipe ships or has a documented cause.</p>")
+    out.append("</div>")
+    return "\n".join(out) + "\n"
+
+
+def generate_news():
+    _, months = parse_changelog()
+    out = ['<div class="news">']
+    for month, body in months:
+        out.append(f'<section class="news-month" id="{month}">')
+        out.append(f"<h2>{month}</h2>")
+        out.append(render_markdown(body.strip()))
+        out.append("</section>")
+    out.append("</div>")
+    return "\n".join(out) + "\n"
+
+
+def generate_news_preview(limit):
+    """The newest changelog month's first bullets, for the landing."""
+    _, months = parse_changelog()
+    month, body = months[0]
+    bullets = [line for line in body.splitlines() if line.startswith("- ")][:limit]
+    if not bullets:
+        die("CHANGELOG.md newest month has no bullet entries")
+    return (
+        '<div class="news-preview">'
+        f'<p class="news-preview-head">Latest — <a href="news/">{month}</a>:</p>\n'
+        + render_markdown("\n".join(bullets))
+        + "</div>"
+    )
+
+
+# ---------------------------------------------------------------------------
+# directives & page rendering
+# ---------------------------------------------------------------------------
+
+INCLUDE_RE = re.compile(r"^@@include (.+?)@@\s*$", re.M)
+DIRECTIVE_RE = re.compile(r"^@@generated:([a-z-]+)(?: (\d+))?@@\s*$", re.M)
+
+
+def include_body(path):
+    """Render a repo file into a page, minus the parts that only make
+    sense inside its own repository: the <picture> header block and the
+    trailing Provenance section (its relative links are overlay-repo
+    specific; the site covers provenance in About and Developing)."""
+    text = (ROOT / path).read_text()
+    text = re.sub(r"\A<h1\b.*?</h1>\s*", "", text, flags=re.S)
+    cut = text.find("\n## Provenance\n")
+    if cut == -1:
+        die(f"{path}: expected a '## Provenance' section to cut at the site boundary")
+    return text[:cut].rstrip() + "\n"
+
+
+def apply_directives(text, page_src):
+    def include(match):
+        path = match.group(1)
+        if not (ROOT / path).is_file():
+            die(f"{page_src}: @@include {path}@@ — no such file")
+        return include_body(path)
+
+    def directive(match):
+        kind, arg = match.group(1), match.group(2)
+        if kind == "packages":
+            return generate_packages()
+        if kind == "news":
+            return generate_news()
+        if kind == "status":
+            return generate_status()
+        if kind == "news-preview":
+            return generate_news_preview(int(arg or 3))
+        die(f"{page_src}: unknown @@generated:{kind}@@ directive")
+
+    text = INCLUDE_RE.sub(include, text)
+    return DIRECTIVE_RE.sub(directive, text)
+
+
+def parse_frontmatter(text, src):
+    if not text.startswith("---\n"):
+        die(f"{src}: missing frontmatter (--- title: ... ---)")
+    end = text.find("\n---\n", 4)
+    if end == -1:
+        die(f"{src}: unterminated frontmatter")
+    meta, body = {}, text[end + 5:]
+    for line in text[4:end].splitlines():
+        if ": " not in line:
+            die(f"{src}: bad frontmatter line {line!r}")
+        key, value = line.split(": ", 1)
+        meta[key.strip()] = value.strip()
+    if "title" not in meta:
+        die(f"{src}: frontmatter needs a title")
+    meta.setdefault("desc", DEFAULT_DESC)
+    return meta, body
+
+
+def page_prefix(out_path):
+    """Relative prefix from a page's directory to the site root."""
+    page_dir = posixpath.dirname(out_path)
+    if not page_dir:
+        return ""
+    rel = posixpath.relpath(".", page_dir)
+    return "" if rel == "." else rel + "/"
+
+
+def nav_html(out_path, prefix):
+    items = []
+    for label, target, button in NAV:
+        active = (
+            posixpath.dirname(out_path) == posixpath.dirname(target)
+            and out_path != "404.html"
+        )
+        cls = (["nav-button"] if button else []) + (["active"] if active else [])
+        attr = f' class="{" ".join(cls)}"' if cls else ""
+        dir_part = posixpath.dirname(target)
+        href = f"{prefix}{dir_part}/" if dir_part else prefix or "."
+        items.append(f'<a href="{href}"{attr}>{label}</a>')
+    items.append('<a class="nav-ext" href="https://github.com/Lax/omarchy-gentoo">GitHub&#8599;</a>')
+    items.append(
+        '<button id="theme-toggle" type="button" title="Cycle theme (T)" '
+        'aria-label="Cycle theme">&#9686;</button>'
+    )
+    return "\n".join(items)
+
+
+def hero_html(out_path, prefix):
+    if out_path != "index.html":
+        return ""
+    return f"""<div class="hero">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="{prefix}assets/omarchy-gentoo-lockup-dark.svg">
+    <img src="{prefix}assets/omarchy-gentoo-lockup-light.svg" alt="Omarchy on Gentoo — Omarchy packages for Gentoo Linux" width="640">
+  </picture>
+  <p class="hero-tag">The Omarchy desktop for Gentoo Linux — Hyprland, quickshell
+  and the tools around them — as source-based ebuilds.</p>
+  <p class="hero-badge">an unofficial community overlay · not affiliated with upstream Omarchy</p>
+</div>"""
+
+
+def breadcrumb(out_path, prefix):
+    if not out_path.startswith("manual/") or out_path == "manual/index.html":
+        return ""
+    return (
+        f'<p class="crumb"><a href="{prefix}manual/">manual</a>'
+        f" · the manual</p>\n"
+    )
+
+
+def substitute(template, out_path, title, desc, content, base):
+    year = max(m for m, _ in parse_changelog()[1])[:4]
+    # The landing title carries the site name itself; everywhere else the
+    # page title gets the site name appended.
+    if out_path != "index.html":
+        title = f"{title} · Omarchy on Gentoo"
+    # The 404 is served at the missing URL: its links must be absolute.
+    prefix = base if out_path == "404.html" else page_prefix(out_path)
+    return (
+        template.replace("{{base}}", base)
+        .replace("{{prefix}}", prefix)
+        .replace("{{title}}", html.escape(title))
+        .replace("{{desc}}", html.escape(desc))
+        .replace("{{nav}}", nav_html(out_path, prefix))
+        .replace("{{hero}}", hero_html(out_path, prefix))
+        .replace("{{crumb}}", breadcrumb(out_path, prefix))
+        .replace("{{home_class}}", "page-home" if out_path == "index.html" else "page-doc")
+        .replace("{{year}}", year)
+        .replace("{{content}}", content)
+    )
+
+
+def render_page(src, out_path, template, base):
+    text = (ROOT / "site" / src).read_text()
+    meta, body = parse_frontmatter(text, src)
+    content = apply_directives(body, src)
+    return substitute(template, out_path, meta["title"], meta["desc"], render_markdown(content), base)
+
+
+def copy_assets():
+    dest = DIST / "assets"
+    dest.mkdir(parents=True, exist_ok=True)
+    for name in ASSETS:
+        src = ROOT / "assets" / "logo" / name
+        if not src.is_file():
+            die(f"assets/logo/{name} is missing — the logo kit changed; update bin/site-build ASSETS")
+        (dest / name).write_bytes(src.read_bytes())
+    for name in ("site.css", "site.js"):
+        (dest / name).write_bytes((SITE / "template" / name).read_bytes())
+
+
+def link_check(base):
+    """Every internal href/src must resolve to an emitted file; every
+    fragment to an emitted id. Absolute internal paths are rejected
+    (they break under the Pages subpath) except on the base-prefixed
+    404, whose absolutes are the point."""
+    problems = []
+    for page in sorted(DIST.rglob("*.html")):
+        text = page.read_text()
+        rel = str(page.relative_to(DIST))
+        page_dir = posixpath.dirname(rel)
+        for url in re.findall(r'\b(?:href|src)="([^"]+)"', text):
+            if url.startswith(("http://", "https://", "mailto:")):
+                continue
+            target, _, fragment = url.partition("#")
+            if not target:
+                if fragment and f'id="{fragment}"' not in text:
+                    problems.append(f"{rel}: dead fragment #{fragment}")
+                continue
+            if target.startswith("/"):
+                # Absolute paths are the 404's contract (it is served at
+                # the missing URL); everywhere else they would break under
+                # the Pages subpath.
+                if base and target.startswith(base):
+                    target = target[len(base):]
+                elif rel != "404.html":
+                    problems.append(f"{rel}: absolute internal link {url} (breaks under a subpath)")
+                    continue
+                resolved = posixpath.normpath(target).lstrip("/")
+            else:
+                resolved = posixpath.normpath(posixpath.join(page_dir, target))
+            candidates = [resolved, posixpath.join(resolved, "index.html")]
+            hit = next((c for c in candidates if (DIST / c).is_file()), None)
+            if hit is None:
+                problems.append(f"{rel}: dead link {url}")
+            elif fragment and f'id="{fragment}"' not in (DIST / hit).read_text():
+                problems.append(f"{rel}: dead fragment {url}")
+    return problems
+
+
+def build(outdir):
+    global DIST
+    DIST = Path(outdir)
+    base = os.environ.get("OMARCHY_SITE_BASE", "")
+    if base and not (base.startswith("/") and base.endswith("/")):
+        die("OMARCHY_SITE_BASE must be empty or look like /omarchy-gentoo/")
+    template = (SITE / "template" / "base.html").read_text()
+    for src, out_path in PAGES:
+        target = DIST / out_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(render_page(src, out_path, template, base))
+    # The 404 page: same pipeline, absolute (base-prefixed) links.
+    src = "content/404.md"
+    text = (ROOT / "site" / src).read_text()
+    meta, body = parse_frontmatter(text, src)
+    content = render_markdown(apply_directives(body, src))
+    (DIST / "404.html").write_text(
+        substitute(template, "404.html", meta["title"], meta["desc"], content, base)
+    )
+    copy_assets()
+    (DIST / ".nojekyll").write_text("")
+    problems = link_check(base)
+    if problems:
+        for p in problems:
+            print(f"site-build: {p}", file=sys.stderr)
+        die(f"{len(problems)} broken internal link(s) — fix the sources")
+
+
+def tree_digest(root):
+    import hashlib
+
+    digest = hashlib.sha256()
+    for path in sorted(p for p in root.rglob("*") if p.is_file()):
+        digest.update(str(path.relative_to(root)).encode())
+        digest.update(path.read_bytes())
+    return digest.hexdigest()
+
+
+# ---------------------------------------------------------------------------
+# self-test
+# ---------------------------------------------------------------------------
+
+def self_test():
+    checks = []
+
+    def check(name, condition, detail=""):
+        checks.append((name, bool(condition), detail))
+        if not condition:
+            print(f"FAIL {name} {detail}", file=sys.stderr)
+
+    # 1. deterministic: two builds of the same tree are byte-identical
+    with tempfile.TemporaryDirectory() as tmp:
+        one, two = Path(tmp) / "one", Path(tmp) / "two"
+        build(one)
+        build(two)
+        check("builds are deterministic", tree_digest(one) == tree_digest(two))
+
+        index = (one / "index.html").read_text()
+        install = (one / "manual" / "install" / "index.html").read_text()
+        packages = (one / "manual" / "packages" / "index.html").read_text()
+        news = (one / "news" / "index.html").read_text()
+
+        # 2. no unsubstituted template placeholders anywhere
+        leaks = [str(p.relative_to(one)) for p in one.rglob("*.html") if "{{" in p.read_text()]
+        check("no template placeholder leaks", not leaks, str(leaks))
+
+        # 3. the install page carries the canonical commands from the
+        #    overlay README (single source: the include), minus the
+        #    overlay-repo-only sections
+        check(
+            "install include carries the eselect line",
+            "eselect repository add omarchy git https://github.com/Lax/omarchy-overlay.git" in install,
+        )
+        check(
+            "install include carries both emerge targets",
+            "emerge omarchy/omarchy" in install and "emerge omarchy/omarchy-base" in install,
+        )
+        check("install include strips the picture header", "<picture>" not in install)
+        check("install include strips Provenance", "## Provenance" not in install)
+
+        # 4. the generated coverage page agrees with the tools: shipped
+        #    and skipped come from the tables, the queue comes from
+        #    bin/ai-port itself (same source the nightly coverage job uses)
+        shipped, skipped = coverage()
+        check(
+            "packages page renders the shipped count",
+            f'<h2 id="shipped">Shipped ({len(shipped)})</h2>' in packages,
+        )
+        check(
+            "packages page renders the skip table",
+            "spotify" in packages and "slack-desktop" in packages,
+        )
+        queue = port_queue()
+        raw = subprocess.run(
+            ["bin/ai-port", "--list-open"], cwd=ROOT, capture_output=True, text=True
+        )
+        check("ai-port --list-open runs", raw.returncode == 0, raw.stderr[:200])
+        raw_open = sum(1 for line in raw.stdout.splitlines() if line.rstrip().endswith("OPEN"))
+        check(
+            "port queue parses ai-port's output fully",
+            raw_open == len(queue),
+            f"raw output has {raw_open} OPEN lines, parsed {len(queue)}",
+        )
+        for name in queue:
+            check(f"packages page lists queue entry {name}", f"<code>{name}</code>" in packages)
+
+        # 5. news renders every changelog month
+        for month, _ in parse_changelog()[1]:
+            check(f"news renders {month}", f'id="{month}"' in news)
+
+        # 6. no hand-written package counts in content files (numbers come
+        #    from build-time interpolation, never from prose)
+        offenders = [
+            src for src, _ in PAGES
+            if re.search(r"\b\d+\s+(?:packages|ebuilds)\b", (ROOT / "site" / src).read_text())
+        ]
+        check("no hard-coded counts in content", not offenders, str(offenders))
+
+        # 7. invariant greps: facts the pages must keep stating
+        for src, needles in INVARIANTS.items():
+            page_text = (ROOT / "site" / src).read_text()
+            for needle in needles:
+                check(f"{src} states {needle!r}", needle in page_text)
+
+        # 8. the landing carries the generated status strip
+        check("landing renders the status strip", 'class="status-strip"' in index)
+
+    # 9. the OMARCHY_SITE_BASE variant: 404 absolutes get the base, the
+    #    other pages stay root-relative (subpath-safe)
+    os.environ["OMARCHY_SITE_BASE"] = "/omarchy-gentoo/"
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            three = Path(tmp) / "three"
+            build(three)
+            p404 = (three / "404.html").read_text()
+            check("404 links carry the base path", 'href="/omarchy-gentoo/manual/' in p404)
+            regular = (three / "manual" / "install" / "index.html").read_text()
+            check(
+                "regular pages stay root-relative",
+                'href="/' not in regular and 'src="/' not in regular,
+            )
+    finally:
+        os.environ.pop("OMARCHY_SITE_BASE", None)
+
+    # 10. the vendored renderer is a real python-markdown 3.x
+    sys.path.insert(0, str(SITE / "vendor"))
+    import markdown
+
+    check("vendored markdown imports", markdown.__version__.startswith("3."))
+
+    failed = [name for name, ok, _ in checks if not ok]
+    print(f"site-build self-test: {len(checks) - len(failed)}/{len(checks)} checks passed")
+    if failed:
+        sys.exit(1)
+
+
+def main():
+    if "--self-test" in sys.argv[1:]:
+        self_test()
+        return
+    if len(sys.argv) > 1:
+        die(f"unknown argument {sys.argv[1]!r} (try --self-test)")
+    build(DIST)
+    print(f"site-build: wrote {DIST}")
+
+
+if __name__ == "__main__":
+    main()

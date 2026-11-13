@@ -48,6 +48,12 @@ tooling cannot disagree with itself.
 - `CHANGELOG.md` — notable overlay changes by month (ports, skips/drops,
   tooling and gate changes, incidents). Pin bumps and drift reconciliation
   are not recorded; append to the newest month when such a change lands.
+- `site/` + `bin/site-build` — the documentation site: markdown content,
+  one template, a vendored markdown renderer, and the builder that turns
+  them into static HTML (deployed to GitHub Pages by `site.yml`). Every
+  number on the site is generated from the tree at build time; scope
+  stays on this overlay — upstream Omarchy usage docs are linked, never
+  duplicated.
 
 ## The automation (what maintains itself)
 
@@ -62,6 +68,13 @@ tooling cannot disagree with itself.
   omarchy-overlay publish, and automatic issue filing on any gate failure.
 - **Gentoo tooling** (`gentoo-tooling.yml`): offline self-tests on every
   PR/push touching the overlay or tooling.
+- **Docs site** (`site.yml`): every push that touches the site or its
+  data sources (helpers tables, changelog, overlay README, logo assets,
+  the submodule pin) rebuilds the site and deploys it to GitHub Pages;
+  PRs build without deploying. Content pages are hand-written markdown;
+  the data pages (coverage, news, the landing numbers, the install
+  commands) are generated at build time, so the site cannot drift from
+  the overlay without failing its own build.
 
 ## Agent workflows
 
@@ -147,9 +160,14 @@ break the next sync with code 128; recover with `chown -R portage:portage` +
 ## The gates (what CI runs)
 
 - `gentoo-tooling.yml`: the self-tests above (including
-  `bin/gentoo-resolve --self-test` and
-  `bin/gentoo-resolve-scope --self-test`), mapping-table/overlay
+  `bin/gentoo-resolve --self-test`,
+  `bin/gentoo-resolve-scope --self-test` and
+  `bin/site-build --self-test`), mapping-table/overlay
   consistency, baseline markers present on every ebuild.
+- `site.yml`: `bin/site-build --self-test` (the install commands match
+  the overlay README, the coverage counts agree with
+  `bin/ai-port --list-open`, no hand-written package counts, every
+  internal link resolves), then the build and the Pages deploy.
 - `gentoo.yml` → `lint`: `pkgcheck scan` over the tree (Manifest check
   excluded — CI generates Manifests) plus `bin/gentoo-resolve` inside a
   stock gentoo/stage3 container, repo-owned tooling only. The resolve
@@ -182,7 +200,9 @@ private repos only):
   tree belongs on the self-hosted runner — the nightly smoke owns the
   full-tree resolve.
 - Every cloud job sets `timeout-minutes`; a hung job is wasted quota.
-- No artifacts today. If one is ever added, `retention-days` must be ≤ 7.
+- No artifacts, with one exception: the GitHub Pages deploy artifact
+  (`site.yml`, static HTML, `retention-days: 7`). Any other artifact is
+  a regression.
 - No larger runners, no macOS/Windows runners.
 - The monthly quota check automation re-verifies repository visibility,
   artifacts and runner labels against this list; any billed Actions

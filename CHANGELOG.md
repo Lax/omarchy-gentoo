@@ -8,6 +8,13 @@ change lands; newest month first.
 
 ## 2026-11
 
+- Documentation site: `site/` + `bin/site-build` (vendored python-markdown,
+  zero external deps) + `site.yml` — deployed to GitHub Pages on every
+  push; coverage/news/install-command pages are generated from the tree at
+  build time (counts cross-checked against `bin/ai-port --list-open`), so
+  the site cannot drift from the overlay. The Pages artifact is the repo's
+  first artifact (retention-days: 7); the monthly quota check's baseline
+  moved accordingly.
 - Omarchy 4.5.0 wave: regenerated patches, ported omasnap, replaced tensaku
   per upstream, triaged the migration surface (Limine, titlebars, signed:
   skip-for-cause), shipped the full omarchy-settings /etc set.
