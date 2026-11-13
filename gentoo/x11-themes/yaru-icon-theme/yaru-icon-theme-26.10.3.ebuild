@@ -7,10 +7,15 @@
 # overlay ships the icon-theme split, which is what Omarchy themes
 # reference through their icons.theme file.
 #
-# The icon split is configured directly (-Dicons, everything else off)
-# rather than upstream's build-everything-then-delete: the other splits'
-# SASS machinery needs dev-util/sassc, which the ::gentoo 2026 tree no
-# longer carries. The prune below stays as the belt to meson's braces.
+# The icon split cannot be configured alone: icons/meson.build colorizes
+# accented SVGs from gtk_yaru_colors_defs, a table only the gtk component
+# builds (its SASS machinery runs at configure time), so gtk stays on
+# beside icons - upstream's supported configuration builds everything and
+# prunes per split; we prune harder at src_install. That machinery needs
+# dev-lang/sassc, which ::gentoo carries. (An earlier revision configured
+# -Dicons-only on the belief that dev-util/sassc had been dropped - the
+# note named the wrong category, and the unsupported configure died in
+# meson setup before the nightly rotation ever reached it.)
 EAPI=8
 
 inherit meson xdg
@@ -30,10 +35,12 @@ RDEPEND="
 	x11-themes/hicolor-icon-theme
 "
 
+BDEPEND="dev-lang/sassc"
+
 src_configure() {
 	local emesonargs=(
 		-Dicons=true
-		-Dgtk=false
+		-Dgtk=true
 		-Dgtksourceview=false
 		-Dgnome-shell=false
 		-Dmetacity=false

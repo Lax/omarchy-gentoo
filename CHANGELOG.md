@@ -23,8 +23,7 @@ change lands; newest month first.
   so the command surface is identical by construction). Ported the two
   gaps: x11-themes/aether-bin (the theme editor GUI; upstream ships
   release binaries) and x11-themes/yaru-icon-theme (the icon split of
-  ubuntu/yaru, configured -Dicons-only because dev-util/sassc is gone
-  from the ::gentoo 2026 tree); both now RDEPENDed by omarchy-base, the
+  ubuntu/yaru); both now RDEPENDed by omarchy-base, the
   stale skip.tsv yaru row removed. ai-port --verify mounts the provider
   allowlist now, matching CI's lint job — local verifies of umbrella-
   scoped packages no longer false-FAIL on the hyproverlay providers.
@@ -32,6 +31,19 @@ change lands; newest month first.
   Themes and Plugins — documenting the Gentoo side: the commands are
   upstream's unmodified, here is what ships around them, and here is
   the honest pending list.
+- yaru-icon-theme's first days were an incident worth remembering: the
+  port configured the icon split alone (-Dicons, everything else off)
+  because it believed dev-util/sassc was gone from ::gentoo — the note
+  named the wrong category (dev-lang/sassc is in the tree) — and upstream
+  could not have honored the configuration anyway: icons/meson.build
+  colorizes accented SVGs from gtk_yaru_colors_defs, a table only the
+  gtk component's SASS machinery produces, so icons-without-gtk dies in
+  meson setup. The resolve gate cannot see any of this (it resolves
+  dependencies; it does not run meson), and the package-of-the-day smoke
+  had not rotated to the package yet, so the first real update run found
+  it. Fixed: gtk stays on beside icons, BDEPEND dev-lang/sassc declared,
+  gentoo-deps.map gains the sassc row, and the src_install prune keeps
+  the split icon-only.
 - Follow-up on the recipes' org move: omarchy-themes-intros SRC_URI/HOMEPAGE
   and the overlay README's upstream link retargeted from basecamp/omarchy to
   omacom/omarchy (fetches worked via GitHub redirect until now); once-bin
