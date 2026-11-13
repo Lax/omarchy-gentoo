@@ -106,3 +106,5 @@ amp-desktop-bin	dev-util	amp-desktop-bin
 omasnap	media-gfx	omasnap
 yt-dlp	net-misc	yt-dlp
 plain	app-editors	plain
+aether	x11-themes	aether-bin
+yaru-icon-theme	x11-themes	yaru-icon-theme

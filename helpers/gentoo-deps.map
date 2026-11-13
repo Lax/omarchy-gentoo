@@ -205,3 +205,4 @@ zoxide					app-shells/zoxide
 zsh						app-shells/zsh
 zsh-syntax-highlighting	app-shells/zsh-syntax-highlighting
 openblas				sci-libs/openblas
+gtk-update-icon-cache		DROP

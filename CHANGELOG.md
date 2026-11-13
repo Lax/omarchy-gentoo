@@ -8,6 +8,17 @@ change lands; newest month first.
 
 ## 2026-11
 
+- The theme/plugin compatibility round: audited upstream's theme and
+  plugin machinery script by script (all of it is git + file operations —
+  zero pacman, zero sudo — and the omarchy ebuild ships bin/* unpatched,
+  so the command surface is identical by construction). Ported the two
+  gaps: x11-themes/aether-bin (the theme editor GUI; upstream ships
+  release binaries) and x11-themes/yaru-icon-theme (the icon split of
+  ubuntu/yaru, configured -Dicons-only because dev-util/sassc is gone
+  from the ::gentoo 2026 tree); both now RDEPENDed by omarchy-base, the
+  stale skip.tsv yaru row removed. ai-port --verify mounts the provider
+  allowlist now, matching CI's lint job — local verifies of umbrella-
+  scoped packages no longer false-FAIL on the hyproverlay providers.
 - Follow-up on the recipes' org move: omarchy-themes-intros SRC_URI/HOMEPAGE
   and the overlay README's upstream link retargeted from basecamp/omarchy to
   omacom/omarchy (fetches worked via GitHub redirect until now); once-bin
