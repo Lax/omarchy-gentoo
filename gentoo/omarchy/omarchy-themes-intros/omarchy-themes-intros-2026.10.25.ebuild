@@ -9,9 +9,9 @@
 EAPI=8
 
 DESCRIPTION="Background intro videos for the Omarchy themes"
-HOMEPAGE="https://github.com/basecamp/omarchy"
+HOMEPAGE="https://github.com/omacom/omarchy"
 _COMMIT=a1ea6096d0bd88bd61ed871fc35628cd56e8bb72
-SRC_URI="https://github.com/basecamp/omarchy/archive/${_COMMIT}.tar.gz -> ${P}.tar.gz"
+SRC_URI="https://github.com/omacom/omarchy/archive/${_COMMIT}.tar.gz -> ${P}.tar.gz"
 
 S="${WORKDIR}/omarchy-${_COMMIT}"
 
