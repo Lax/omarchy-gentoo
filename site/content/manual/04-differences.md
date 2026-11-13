@@ -42,6 +42,11 @@ machinery, later waves of porting work. The
 [coverage page](../packages/#skipped) is the authoritative list; this page
 deliberately does not repeat it.
 
+Themes and plugins have their own pages, because their story is mostly
+"identical": [Themes](../themes/) and [Plugins](../plugins/) cover the
+commands (upstream's, unmodified), what the overlay ships around them,
+and the few helpers still pending.
+
 Two Gentoo-side realities upstream does not have: everything is
 `~arch`-keyworded, and the `-bin` packages carry proprietary licenses —
 both accepted the usual Portage way ([Troubleshooting](../troubleshooting/)).
