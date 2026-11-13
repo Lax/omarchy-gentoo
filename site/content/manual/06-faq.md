@@ -16,9 +16,11 @@ here — everything compiles from source.
 
 **Where are the docs for themes, hotkeys, plugins, the AI tooling?**
 
-Upstream's: the [official manual](https://omarchy.org/manual/) covers
-using the desktop and applies on Gentoo. This site only documents the
-Gentoo side.
+Using the desktop (hotkeys, the AI tooling) is upstream's:
+the [official manual](https://omarchy.org/manual/) applies on Gentoo.
+The Gentoo side of themes and plugins is documented here —
+[Themes](../themes/) and [Plugins](../plugins/): the commands are
+upstream's, unmodified.
 
 **Why is some package missing?**
 

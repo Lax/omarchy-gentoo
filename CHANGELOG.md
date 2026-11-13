@@ -19,6 +19,10 @@ change lands; newest month first.
   stale skip.tsv yaru row removed. ai-port --verify mounts the provider
   allowlist now, matching CI's lint job — local verifies of umbrella-
   scoped packages no longer false-FAIL on the hyproverlay providers.
+  The manual grew upstream's layout (left sidebar) and two pages —
+  Themes and Plugins — documenting the Gentoo side: the commands are
+  upstream's unmodified, here is what ships around them, and here is
+  the honest pending list.
 - Follow-up on the recipes' org move: omarchy-themes-intros SRC_URI/HOMEPAGE
   and the overlay README's upstream link retargeted from basecamp/omarchy to
   omacom/omarchy (fetches worked via GitHub redirect until now); once-bin

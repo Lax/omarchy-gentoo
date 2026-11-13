@@ -279,6 +279,82 @@ th { background: var(--bg-soft); font-family: inherit; }
   margin: 1.6rem 0 0;
 }
 
+/* the manual's two-column layout (sidebar + article), upstream-style ---- */
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+body.page-manual { max-width: 64rem; }
+body.page-manual .layout {
+  grid-template-columns: 12.5rem minmax(0, 1fr);
+  column-gap: 2.6rem;
+}
+/* Auto-placement would wrap the article under the sidebar's column once
+ * the crumb takes the second cell of row one; pin it to column two. */
+body.page-manual .layout > .crumb,
+body.page-manual .layout > article {
+  grid-column: 2;
+  min-width: 0;
+}
+body.page-manual .nav,
+body.page-manual .footer { max-width: 64rem; }
+
+.sidebar {
+  position: sticky;
+  top: 3.4rem;
+  padding: 1.7rem 0 2rem;
+  font-size: 0.88rem;
+}
+.sidebar-title {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.76rem;
+  letter-spacing: 0.05em;
+  margin: 0 0 0.4rem;
+}
+.sidebar-title a { color: var(--dim); }
+.sidebar-title a:hover { color: var(--accent); text-decoration: none; }
+.sidebar ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-left: 1px solid var(--border);
+}
+.sidebar li { margin: 0; }
+.sidebar li a {
+  display: block;
+  padding: 0.26rem 0.9rem;
+  margin-left: -1.5px;
+  border-left: 2px solid transparent;
+  color: var(--dim);
+}
+.sidebar li a:hover { color: var(--fg); text-decoration: none; }
+.sidebar li.active a {
+  color: var(--accent);
+  border-left-color: var(--accent);
+}
+
+@media (max-width: 960px) {
+  body.page-manual .layout { grid-template-columns: minmax(0, 1fr); }
+  body.page-manual .layout > .crumb,
+  body.page-manual .layout > article { grid-column: auto; }
+  .sidebar { position: static; padding-bottom: 0.4rem; }
+  .sidebar ol {
+    border-left: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.1rem 1.1rem;
+  }
+  .sidebar li a {
+    padding: 0.14rem 0;
+    margin-left: 0;
+    border-left: none;
+  }
+  .sidebar li.active a { border-left: none; }
+}
+
 /* footer ----------------------------------------------------------------- */
 
 .footer {
