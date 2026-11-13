@@ -47,7 +47,13 @@ change lands; newest month first.
   aether-bin forgot to neutralize src_compile, and the default phase ran
   emake on the wails Makefile the source tarball ships — a binary-install
   ebuild whose S contains a Makefile must no-op the phase (the default
-  only skips emake when no Makefile exists).
+  only skips emake when no Makefile exists). Third in the same run:
+  omasnap 1.26.2 outgrew its optional-qttest patch — upstream dropped the
+  BUILD_TESTING guard and reshaped the test target — and died at prepare,
+  exactly the loud failure the patch-naming comment promised; regenerated
+  against the new structure with the same semantics (Test out of the
+  required find_package, suite guarded by BUILD_TESTING AND TARGET
+  Qt6::Test).
 - Follow-up on the recipes' org move: omarchy-themes-intros SRC_URI/HOMEPAGE
   and the overlay README's upstream link retargeted from basecamp/omarchy to
   omacom/omarchy (fetches worked via GitHub redirect until now); once-bin

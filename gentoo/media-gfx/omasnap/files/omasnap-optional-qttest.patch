@@ -1,7 +1,7 @@
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -5,7 +5,12 @@
- set(CMAKE_AUTOMOC ON)
+@@ -29,7 +29,12 @@
+ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
  
  find_package(PkgConfig REQUIRED)
 -find_package(Qt6 6.8 REQUIRED COMPONENTS Concurrent Core Gui Test Widgets)
@@ -14,12 +14,18 @@
  find_package(LayerShellQt REQUIRED)
  pkg_check_modules(WaylandClient REQUIRED IMPORTED_TARGET wayland-client)
  pkg_check_modules(Libdeflate REQUIRED IMPORTED_TARGET libdeflate)
-@@ -152,7 +157,7 @@
- target_link_libraries(omasnap PRIVATE omasnap-core)
- target_precompile_headers(omasnap REUSE_FROM omasnap-core)
+@@ -124,12 +129,14 @@
+ target_precompile_headers(omasnap REUSE_FROM omasnap_core)
  
--if(BUILD_TESTING)
+ enable_testing()
 +if(BUILD_TESTING AND TARGET Qt6::Test)
- qt_add_executable(omasnap-smoke
-   tests/scroll-focus-smoke.cpp
-   tests/scroll-focus-smoke.hpp
+ file(GLOB omasnap_test_sources CONFIGURE_DEPENDS tests/*.cpp tests/*.hpp)
+ add_executable(omasnap_tests ${omasnap_test_sources})
+ target_link_libraries(omasnap_tests PRIVATE omasnap_core Qt6::Test)
+ target_precompile_headers(omasnap_tests REUSE_FROM omasnap_core)
+ add_test(NAME omasnap_tests COMMAND omasnap_tests)
+ set_tests_properties(omasnap_tests PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=offscreen)
++endif()
+ 
+ # Static analysis with the checks in .clang-tidy, where any finding fails.
+ # Qt adds a GCC-only flag that clang rejects, so it is dropped for the analysis.
