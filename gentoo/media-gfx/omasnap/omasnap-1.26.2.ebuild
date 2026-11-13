@@ -1,4 +1,4 @@
-# arch-pkgver: 1.26.0
+# arch-pkgver: 1.26.2
 # Ported from pkgbuilds/omasnap. Native Wayland screenshot and annotation
 # overlay for Hyprland: Qt6 widgets over a layer-shell surface, the
 # ext-image-copy-capture protocol family, a libdeflate-backed PNG fast path
