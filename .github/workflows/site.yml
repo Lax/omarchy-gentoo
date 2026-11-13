@@ -53,6 +53,10 @@ jobs:
           submodules: recursive
 
       - name: Self-test, then build
+        env:
+          # Project-pages subpath (kept under the custom domain too):
+          # only the 404 page uses it, for absolute links.
+          OMARCHY_SITE_BASE: /omarchy-gentoo/
         run: |
           set -euo pipefail
           bin/site-build --self-test
