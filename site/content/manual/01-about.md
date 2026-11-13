@@ -21,9 +21,11 @@ palette) are defined once in the repository's
 - **Not a fork of Omarchy.** Upstream's Arch recipes drive everything: CI
   reads them from the pinned `omacom/omarchy-pkgs` submodule and
   reconciles this tree against them around the clock.
-- **Not an Omarchy usage guide.** Hotkeys, theming, plugins and the AI
-  tooling are upstream's story — [the official manual](https://omarchy.org/manual/)
-  covers the desktop on any distro.
+- **Not an Omarchy usage guide.** Hotkeys and the AI tooling are
+  upstream's story — [the official manual](https://omarchy.org/manual/)
+  covers the desktop on any distro. The Gentoo side of themes and
+  plugins is the exception: their commands work identically here, and
+  [Themes](../themes/) / [Plugins](../plugins/) document what ships.
 - **Not a Gentoo tutorial.** If Portage concepts are new, start with the
   [Gentoo Handbook](https://wiki.gentoo.org/wiki/Handbook:AMD64), then
   come back to [Install](../install/).

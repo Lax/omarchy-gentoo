@@ -54,6 +54,8 @@ effectively read-only. Include `emerge --info`, the failing atom, and
 which overlay commit you have synced (that repository's `PROVENANCE`
 file names it).
 
-Questions about *using* the desktop itself — keybindings, themes,
-plugins — belong upstream: [omarchy.org](https://omarchy.org), its
-[manual](https://omarchy.org/manual/), and its community channels.
+Questions about *using* the desktop itself — keybindings, the AI
+tooling — belong upstream: [omarchy.org](https://omarchy.org), its
+[manual](https://omarchy.org/manual/), and its community channels. The
+Gentoo side of themes and plugins is documented here:
+[Themes](../themes/), [Plugins](../plugins/).

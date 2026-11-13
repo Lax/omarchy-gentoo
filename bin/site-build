@@ -47,7 +47,9 @@ MANUAL_PAGES = [
     ("04-differences.md", "differences", "Differences from Arch Omarchy"),
     ("05-troubleshooting.md", "troubleshooting", "Troubleshooting"),
     ("06-faq.md", "faq", "FAQ"),
-    ("07-developing.md", "developing", "Developing"),
+    ("08-themes.md", "themes", "Themes"),
+    ("09-plugins.md", "plugins", "Plugins"),
+    ("10-developing.md", "developing", "Developing"),
 ]
 PAGES = [
     ("content/index.md", "index.html"),
@@ -86,7 +88,17 @@ INVARIANTS = {
         "@@include gentoo/README.md@@",
     ],
     "content/manual/04-differences.md": ["omarchy-pkg-add"],
-    "content/manual/07-developing.md": [
+    "content/manual/08-themes.md": [
+        "omarchy theme install",
+        "icons.theme",
+        "yaru-icon-theme",
+    ],
+    "content/manual/09-plugins.md": [
+        "omarchy plugin add",
+        "~/.config/omarchy/plugins",
+        "plugins.omarchy.org",
+    ],
+    "content/manual/10-developing.md": [
         "upstream-sync",
         "gentoo.yml",
         "gentoo-tooling.yml",
@@ -435,6 +447,24 @@ def breadcrumb(out_path, prefix):
     )
 
 
+def sidebar_html(out_path, prefix):
+    """The manual's left sidebar (upstream's manual layout): the ordered
+    page list with the current page marked. Manual pages only."""
+    if not out_path.startswith("manual/"):
+        return ""
+    items = []
+    for _, slug, label in MANUAL_PAGES:
+        active = ' class="active"' if out_path == f"manual/{slug}/index.html" else ""
+        items.append(
+            f'<li{active}><a href="{prefix}manual/{slug}/">{label}</a></li>'
+        )
+    return (
+        '<aside class="sidebar" aria-label="Manual sections">\n'
+        f'<p class="sidebar-title"><a href="{prefix}manual/">the manual</a></p>\n'
+        "<ol>\n" + "\n".join(items) + "\n</ol>\n</aside>"
+    )
+
+
 def substitute(template, out_path, title, desc, content, base):
     year = max(m for m, _ in parse_changelog()[1])[:4]
     # The landing title carries the site name itself; everywhere else the
@@ -451,7 +481,13 @@ def substitute(template, out_path, title, desc, content, base):
         .replace("{{nav}}", nav_html(out_path, prefix))
         .replace("{{hero}}", hero_html(out_path, prefix))
         .replace("{{crumb}}", breadcrumb(out_path, prefix))
-        .replace("{{home_class}}", "page-home" if out_path == "index.html" else "page-doc")
+        .replace("{{sidebar}}", sidebar_html(out_path, prefix))
+        .replace(
+            "{{home_class}}",
+            "page-home"
+            if out_path == "index.html"
+            else "page-manual" if out_path.startswith("manual/") else "page-doc",
+        )
         .replace("{{year}}", year)
         .replace("{{content}}", content)
     )
@@ -641,6 +677,23 @@ def self_test():
 
         # 8. the landing carries the generated status strip
         check("landing renders the status strip", 'class="status-strip"' in index)
+
+        # 8b. the manual sidebar: present on manual pages (with the current
+        #     page marked), absent elsewhere
+        for _, slug, _ in MANUAL_PAGES:
+            page_html = (one / "manual" / slug / "index.html").read_text()
+            check(
+                f"manual/{slug} has a sidebar",
+                'class="sidebar"' in page_html
+                and f'<li class="active"><a href="../../manual/{slug}/">' in page_html,
+            )
+        manual_toc = (one / "manual" / "index.html").read_text()
+        check(
+            "manual TOC has a sidebar without an active entry",
+            'class="sidebar"' in manual_toc and '<li class="active">' not in manual_toc,
+        )
+        check("landing has no sidebar", 'class="sidebar"' not in index)
+        check("news has no sidebar", 'class="sidebar"' not in news)
 
     # 9. the OMARCHY_SITE_BASE variant: 404 absolutes get the base, the
     #    other pages stay root-relative (subpath-safe)
