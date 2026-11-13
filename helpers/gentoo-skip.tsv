@@ -5,7 +5,8 @@
 #   arch-only   meaningful only inside an Arch/pacman system
 #   blocked     port exists in principle but a hard blocker must clear first
 #   wave3       planned, but beyond the current waves (needs real porting work)
-# bin/gentoo-coverage (and the nightly coverage job) reads this file, so a
+# bin/ai-port --list-open (and the nightly coverage job, and bin/site-build)
+# reads this file, so a
 # package listed here never shows up as "unported" work.
 yaru-icon-theme	in-gentoo	Gentoo ships x11-themes/yaru-icon-theme
 nautilus-open-any-terminal	in-gentoo	Gentoo ships nautilus-open-any-terminal (with caja variant)
