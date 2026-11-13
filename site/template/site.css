@@ -160,6 +160,33 @@ th { background: var(--bg-soft); font-family: inherit; }
 }
 .nav a.nav-button:hover { background: var(--accent); color: var(--bg); }
 .nav a.nav-ext { margin-left: auto; }
+.lang-switch {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  color: var(--dim);
+}
+.lang-switch .lang-current { color: var(--accent); }
+.lang-switch a { color: var(--dim); padding: 0 0.1rem; }
+.lang-switch a:hover { color: var(--fg); text-decoration: none; }
+
+.en-tag {
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 0.3em;
+  color: var(--dim);
+  vertical-align: 0.1em;
+}
+
+.i18n-stale {
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 0.6rem 1rem;
+  margin: 1.4rem 0;
+  font-size: 0.9rem;
+}
 #theme-toggle {
   background: none;
   border: 1px solid var(--border);
