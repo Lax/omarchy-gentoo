@@ -6,6 +6,6 @@
 		<name>Omarchy</name>
 	</maintainer>
 	<upstream>
-		<remote-id type="github">basecamp/omarchy</remote-id>
+		<remote-id type="github">omacom/omarchy</remote-id>
 	</upstream>
 </pkgmetadata>

@@ -5,7 +5,7 @@
   </picture>
 </h1>
 
-The [Omarchy](https://github.com/basecamp/omarchy) desktop for Gentoo
+The [Omarchy](https://github.com/omacom/omarchy) desktop for Gentoo
 Linux — Hyprland, quickshell and the tools around them — as source-based
 ebuilds. A community port, not affiliated with upstream Omarchy.
 
