@@ -35,6 +35,15 @@ RDEPEND="
 RESTRICT="strip mirror"
 QA_PREBUILT="usr/bin/aether"
 
+src_compile() {
+	# The recipe installs release binaries only; the fetched source tree
+	# is just the desktop entries, icons and README. That tree does ship
+	# a wails Makefile, and the default src_compile runs emake whenever
+	# one is present, so the phase is neutralized explicitly instead of
+	# betting on there being no Makefile.
+	:
+}
+
 src_install() {
 	# ${ARCH} (amd64/arm64) matches the release asset suffix exactly.
 	newbin "${DISTDIR}/aether-${PV}-linux-${ARCH}" aether

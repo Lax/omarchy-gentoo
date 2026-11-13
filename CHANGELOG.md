@@ -43,7 +43,11 @@ change lands; newest month first.
   had not rotated to the package yet, so the first real update run found
   it. Fixed: gtk stays on beside icons, BDEPEND dev-lang/sassc declared,
   gentoo-deps.map gains the sassc row, and the src_install prune keeps
-  the split icon-only.
+  the split icon-only. Same update run, same class, second instance:
+  aether-bin forgot to neutralize src_compile, and the default phase ran
+  emake on the wails Makefile the source tarball ships — a binary-install
+  ebuild whose S contains a Makefile must no-op the phase (the default
+  only skips emake when no Makefile exists).
 - Follow-up on the recipes' org move: omarchy-themes-intros SRC_URI/HOMEPAGE
   and the overlay README's upstream link retargeted from basecamp/omarchy to
   omacom/omarchy (fetches worked via GitHub redirect until now); once-bin
