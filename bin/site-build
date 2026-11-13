@@ -22,6 +22,7 @@ Environment:
                        absolute).
 """
 
+import hashlib
 import html
 import os
 import posixpath
@@ -35,6 +36,9 @@ ROOT = Path(__file__).resolve().parents[1]
 SITE = ROOT / "site"
 DIST = SITE / "dist"
 REPO_URL = "https://github.com/Lax/omarchy-gentoo"
+# The canonical site URL, for hreflang alternates only (all page links
+# are root-relative). One line to change if the domain ever moves.
+SITE_URL = "https://liulantao.com/omarchy-gentoo"
 DEFAULT_DESC = "The Omarchy desktop for Gentoo Linux, as a source-based ebuild overlay."
 
 # Every markdown page: source file, output path. Manual pages carry their
@@ -60,6 +64,43 @@ PAGES = [
 ] + [
     ("content/news.md", "news/index.html"),
 ]
+
+# The Chinese subset: English stays canonical, zh covers the pages a
+# Chinese reader actually lands on (packages/news/developing stay
+# English — data pages and the contributor page are language-neutral
+# enough that a mirror would be translation for its own sake). Each zh
+# page's frontmatter carries `en-source` + `en-stamp` (a hash of the
+# English source at translation time); the self-test fails when the
+# English page has moved since, so stale translations fail the build
+# instead of lingering.
+ZH_MANUAL_SLUGS = [
+    "about",
+    "install",
+    "differences",
+    "troubleshooting",
+    "faq",
+    "themes",
+    "plugins",
+]
+ZH_PAGES = [
+    ("content/zh/index.md", "zh/index.html", "content/index.md"),
+    ("content/zh/manual/00-index.md", "zh/manual/index.html", "content/manual/00-index.md"),
+] + [
+    (f"content/zh/manual/{name}", f"zh/manual/{slug}/index.html", f"content/manual/{name}")
+    for name, slug, _ in MANUAL_PAGES
+    if slug in ZH_MANUAL_SLUGS
+]
+ALL_PAGES = PAGES + [(src, out) for src, out, _ in ZH_PAGES]
+# zh output path -> (zh source, en source): the staleness stamp reads it.
+ZH_SOURCE_OF = {zh_out: (zh_src, en_src) for zh_src, zh_out, en_src in ZH_PAGES}
+# English output path -> its zh counterpart (the hreflang/switcher pairs).
+ZH_OF = {
+    "index.html": "zh/index.html",
+    "manual/index.html": "zh/manual/index.html",
+} | {
+    f"manual/{slug}/index.html": f"zh/manual/{slug}/index.html"
+    for slug in ZH_MANUAL_SLUGS
+}
 # The top navigation: label, output path it points at, styled as button.
 NAV = [
     ("Home", "index.html", False),
@@ -94,6 +135,22 @@ INVARIANTS = {
         "yaru-icon-theme",
     ],
     "content/manual/09-plugins.md": [
+        "omarchy plugin add",
+        "~/.config/omarchy/plugins",
+        "plugins.omarchy.org",
+    ],
+    # The zh pages restate the same operative command lines — a reader
+    # must be able to copy-paste from either locale.
+    "content/zh/manual/02-install.md": [
+        "emaint sync -r omarchy",
+        "@@include gentoo/README.md@@",
+    ],
+    "content/zh/manual/08-themes.md": [
+        "omarchy theme install",
+        "icons.theme",
+        "yaru-icon-theme",
+    ],
+    "content/zh/manual/09-plugins.md": [
         "omarchy plugin add",
         "~/.config/omarchy/plugins",
         "plugins.omarchy.org",
@@ -228,24 +285,36 @@ def parse_changelog():
 # time from the same files the gates check)
 # ---------------------------------------------------------------------------
 
-def generate_status():
+def generate_status(zh=False):
     shipped, skipped = coverage()
     sha, date = upstream_pin()
-    stats = [
-        (str(len(shipped)), "packages shipped"),
-        (str(len(skipped)), "skipped, with cause"),
-        (str(len(port_queue())), "open in the port queue"),
-    ]
+    if zh:
+        stats = [
+            (str(len(shipped)), "已移植的包"),
+            (str(len(skipped)), "有因跳过"),
+            (str(len(port_queue())), "移植队列待办"),
+        ]
+        pin = (
+            f'跟踪上游 <code>omacom/omarchy-pkgs</code> '
+            f'<a href="{REPO_URL}/commit/{sha}"><code>{sha}</code></a>（{date}），'
+            f"每次变更自动发布到 overlay。"
+        )
+    else:
+        stats = [
+            (str(len(shipped)), "packages shipped"),
+            (str(len(skipped)), "skipped, with cause"),
+            (str(len(port_queue())), "open in the port queue"),
+        ]
+        pin = (
+            f'tracking upstream <code>omacom/omarchy-pkgs</code> '
+            f'<a href="{REPO_URL}/commit/{sha}"><code>{sha}</code></a> ({date}), '
+            f"republished to the overlay on every change."
+        )
     cells = "".join(
         f'<div class="stat"><span class="stat-n">{n}</span><span class="stat-l">{l}</span></div>'
         for n, l in stats
     )
-    return (
-        f'<div class="status-strip">{cells}</div>\n'
-        f'<p class="status-pin">tracking upstream <code>omacom/omarchy-pkgs</code> '
-        f'<a href="{REPO_URL}/commit/{sha}"><code>{sha}</code></a> ({date}), '
-        f"republished to the overlay on every change.</p>"
-    )
+    return f'<div class="status-strip">{cells}</div>\n<p class="status-pin">{pin}</p>'
 
 
 def generate_packages():
@@ -369,6 +438,8 @@ def apply_directives(text, page_src):
             return generate_news()
         if kind == "status":
             return generate_status()
+        if kind == "status-zh":
+            return generate_status(zh=True)
         if kind == "news-preview":
             return generate_news_preview(int(arg or 3))
         die(f"{page_src}: unknown @@generated:{kind}@@ directive")
@@ -405,8 +476,24 @@ def page_prefix(out_path):
 
 
 def nav_html(out_path, prefix):
+    # The topbar chrome stays English in both locales; the targets follow
+    # the locale when the page is translated, else they fall back to the
+    # English page (marked implicitly by the sidebar's EN tags).
+    zh = out_path.startswith("zh/")
+    targets = [
+        ("Home", "zh/index.html" if zh else "index.html", False),
+        ("Manual", "zh/manual/index.html" if zh else "manual/index.html", False),
+        ("Packages", "manual/packages/index.html", False),
+        ("News", "news/index.html", False),
+        ("Developing", "manual/developing/index.html", False),
+        (
+            "Install",
+            "zh/manual/install/index.html" if zh else "manual/install/index.html",
+            True,
+        ),
+    ]
     items = []
-    for label, target, button in NAV:
+    for label, target, button in targets:
         active = (
             posixpath.dirname(out_path) == posixpath.dirname(target)
             and out_path != "404.html"
@@ -417,6 +504,7 @@ def nav_html(out_path, prefix):
         href = f"{prefix}{dir_part}/" if dir_part else prefix or "."
         items.append(f'<a href="{href}"{attr}>{label}</a>')
     items.append('<a class="nav-ext" href="https://github.com/Lax/omarchy-gentoo">GitHub&#8599;</a>')
+    items.append(lang_switch_html(out_path))
     items.append(
         '<button id="theme-toggle" type="button" title="Cycle theme (T)" '
         'aria-label="Cycle theme">&#9686;</button>'
@@ -424,44 +512,143 @@ def nav_html(out_path, prefix):
     return "\n".join(items)
 
 
+def site_url_for(out_path):
+    return f"{SITE_URL}/{posixpath.dirname(out_path)}/"
+
+
+def lang_switch_html(out_path):
+    """EN | 中文 — only on the pages of a translation pair; the current
+    locale is the inert half of the pair."""
+    if out_path in ZH_OF:
+        other, other_label, this_label = ZH_OF[out_path], "中文", "EN"
+    else:
+        en = next((en for en, z in ZH_OF.items() if z == out_path), None)
+        if not en:
+            return ""
+        other, other_label, this_label = en, "EN", "中文"
+    page_dir = posixpath.dirname(out_path)
+    href = posixpath.relpath(posixpath.dirname(other) or ".", page_dir or ".")
+    return (
+        f'<span class="lang-switch"><span class="lang-current">{this_label}</span>'
+        f'<a href="{href}/">{other_label}</a></span>'
+    )
+
+
+def alternates_html(out_path):
+    """hreflang pair links (absolute, per the spec) for translated pages."""
+    zh = ZH_OF.get(out_path) or next(
+        (z for en, z in ZH_OF.items() if z == out_path), None
+    )
+    if not zh:
+        return ""
+    en = out_path if ZH_OF.get(out_path) else next(
+        en for en, z in ZH_OF.items() if z == out_path
+    )
+    return (
+        f'<link rel="alternate" hreflang="en" href="{site_url_for(en)}">\n'
+        f'<link rel="alternate" hreflang="zh" href="{site_url_for(zh)}">\n'
+        f'<link rel="alternate" hreflang="x-default" href="{site_url_for(en)}">'
+    )
+
+
 def hero_html(out_path, prefix):
-    if out_path != "index.html":
+    if out_path == "index.html":
+        tag = "The Omarchy desktop for Gentoo Linux — Hyprland, quickshell\n  and the tools around them — as source-based ebuilds."
+        badge = "an unofficial community overlay · not affiliated with upstream Omarchy"
+    elif out_path == "zh/index.html":
+        tag = "为 Gentoo Linux 带来 Omarchy 桌面 —— Hyprland、quickshell\n  以及围绕它们的工具，全部是源码构建的 ebuild。"
+        badge = "非官方社区 overlay · 与上游 Omarchy 无隶属关系"
+    else:
         return ""
     return f"""<div class="hero">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="{prefix}assets/omarchy-gentoo-lockup-dark.svg">
     <img src="{prefix}assets/omarchy-gentoo-lockup-light.svg" alt="Omarchy on Gentoo — Omarchy packages for Gentoo Linux" width="640">
   </picture>
-  <p class="hero-tag">The Omarchy desktop for Gentoo Linux — Hyprland, quickshell
-  and the tools around them — as source-based ebuilds.</p>
-  <p class="hero-badge">an unofficial community overlay · not affiliated with upstream Omarchy</p>
+  <p class="hero-tag">{tag}</p>
+  <p class="hero-badge">{badge}</p>
 </div>"""
 
 
 def breadcrumb(out_path, prefix):
-    if not out_path.startswith("manual/") or out_path == "manual/index.html":
+    zh = out_path.startswith("zh/manual/")
+    if not out_path.startswith("manual/") and not zh:
         return ""
-    return (
-        f'<p class="crumb"><a href="{prefix}manual/">manual</a>'
-        f" · the manual</p>\n"
-    )
+    if out_path in ("manual/index.html", "zh/manual/index.html"):
+        return ""
+    href = f"{prefix}zh/manual/" if zh else f"{prefix}manual/"
+    return f'<p class="crumb"><a href="{href}">manual</a> · the manual</p>\n'
 
 
 def sidebar_html(out_path, prefix):
     """The manual's left sidebar (upstream's manual layout): the ordered
-    page list with the current page marked. Manual pages only."""
-    if not out_path.startswith("manual/"):
+    page list with the current page marked. Manual pages only. On zh
+    pages the translated entries come from the zh tree; untranslated
+    ones link to the English page with an EN tag."""
+    zh = out_path.startswith("zh/manual/")
+    if not out_path.startswith("manual/") and not zh:
         return ""
+    zh_labels = {
+        "about": "关于",
+        "install": "安装",
+        "packages": "包覆盖",
+        "differences": "差异",
+        "troubleshooting": "排障",
+        "faq": "FAQ",
+        "themes": "主题",
+        "plugins": "插件",
+        "developing": "开发",
+    }
     items = []
     for _, slug, label in MANUAL_PAGES:
-        active = ' class="active"' if out_path == f"manual/{slug}/index.html" else ""
-        items.append(
-            f'<li{active}><a href="{prefix}manual/{slug}/">{label}</a></li>'
-        )
+        if zh:
+            translated = slug in ZH_MANUAL_SLUGS
+            # prefix is relative to the site root from the zh page, so the
+            # English fallback uses the same shape as any en page.
+            href = f"{prefix}{'zh/manual/' if translated else 'manual/'}{slug}/"
+            text = zh_labels[slug] + ("" if translated else ' <span class="en-tag">EN</span>')
+            active = out_path == f"zh/manual/{slug}/index.html"
+        else:
+            href, text, active = f"{prefix}manual/{slug}/", label, False
+            active = out_path == f"manual/{slug}/index.html"
+        marked = ' class="active"' if active else ""
+        items.append(f'<li{marked}><a href="{href}">{text}</a></li>')
+    title_href = f"{prefix}zh/manual/" if zh else f"{prefix}manual/"
     return (
         '<aside class="sidebar" aria-label="Manual sections">\n'
-        f'<p class="sidebar-title"><a href="{prefix}manual/">the manual</a></p>\n'
+        f'<p class="sidebar-title"><a href="{title_href}">the manual</a></p>\n'
         "<ol>\n" + "\n".join(items) + "\n</ol>\n</aside>"
+    )
+
+
+def en_revision(en_src):
+    return hashlib.sha256((SITE / en_src).read_bytes()).hexdigest()[:16]
+
+
+def stale_translations():
+    """zh pages whose en-stamp predates the current English source —
+    the self-test reports them loudly and the pages carry the banner;
+    neither blocks a deploy (the banner is the visible signal)."""
+    stale = []
+    for zh_out, (zh_src, en_src) in sorted(ZH_SOURCE_OF.items()):
+        text = (SITE / zh_src).read_text()
+        m = re.search(r"^en-stamp: ([0-9a-f]+)$", text, re.M)
+        expected = en_revision(en_src)
+        if not m or m.group(1) != expected:
+            stale.append((zh_src, expected))
+    return stale
+
+
+def staleness_banner(zh_src, en_src, prefix):
+    text = (SITE / zh_src).read_text()
+    m = re.search(r"^en-stamp: ([0-9a-f]+)$", text, re.M)
+    if m and m.group(1) == en_revision(en_src):
+        return ""
+    en_out = next(out for src, out in PAGES if src == en_src)
+    en_href = f"{prefix}{posixpath.dirname(en_out)}/"
+    return (
+        '<div class="i18n-stale">本翻译可能已过期：英文原页在此翻译之后有更新，'
+        f'以 <a href="{en_href}">英文页</a> 为准。</div>'
     )
 
 
@@ -469,15 +656,20 @@ def substitute(template, out_path, title, desc, content, base):
     year = max(m for m, _ in parse_changelog()[1])[:4]
     # The landing title carries the site name itself; everywhere else the
     # page title gets the site name appended.
-    if out_path != "index.html":
+    if out_path not in ("index.html", "zh/index.html"):
         title = f"{title} · Omarchy on Gentoo"
     # The 404 is served at the missing URL: its links must be absolute.
     prefix = base if out_path == "404.html" else page_prefix(out_path)
+    if out_path.startswith("zh/"):
+        zh_src, en_src = ZH_SOURCE_OF[out_path]
+        banner = staleness_banner(zh_src, en_src, prefix)
+        content = f"{banner}\n{content}" if banner else content
     return (
         template.replace("{{base}}", base)
         .replace("{{prefix}}", prefix)
         .replace("{{title}}", html.escape(title))
         .replace("{{desc}}", html.escape(desc))
+        .replace("{{alternates}}", alternates_html(out_path))
         .replace("{{nav}}", nav_html(out_path, prefix))
         .replace("{{hero}}", hero_html(out_path, prefix))
         .replace("{{crumb}}", breadcrumb(out_path, prefix))
@@ -485,8 +677,10 @@ def substitute(template, out_path, title, desc, content, base):
         .replace(
             "{{home_class}}",
             "page-home"
-            if out_path == "index.html"
-            else "page-manual" if out_path.startswith("manual/") else "page-doc",
+            if out_path in ("index.html", "zh/index.html")
+            else "page-manual"
+            if out_path.startswith(("manual/", "zh/manual/"))
+            else "page-doc",
         )
         .replace("{{year}}", year)
         .replace("{{content}}", content)
@@ -558,7 +752,7 @@ def build(outdir):
     if base and not (base.startswith("/") and base.endswith("/")):
         die("OMARCHY_SITE_BASE must be empty or look like /omarchy-gentoo/")
     template = (SITE / "template" / "base.html").read_text()
-    for src, out_path in PAGES:
+    for src, out_path in ALL_PAGES:
         target = DIST / out_path
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(render_page(src, out_path, template, base))
@@ -572,6 +766,8 @@ def build(outdir):
     )
     copy_assets()
     (DIST / ".nojekyll").write_text("")
+    for zh_src, _ in stale_translations():
+        print(f"site-build: STALE TRANSLATION {zh_src} — the English page moved after it", file=sys.stderr)
     problems = link_check(base)
     if problems:
         for p in problems:
@@ -664,7 +860,7 @@ def self_test():
         # 6. no hand-written package counts in content files (numbers come
         #    from build-time interpolation, never from prose)
         offenders = [
-            src for src, _ in PAGES
+            src for src, _ in ALL_PAGES
             if re.search(r"\b\d+\s+(?:packages|ebuilds)\b", (ROOT / "site" / src).read_text())
         ]
         check("no hard-coded counts in content", not offenders, str(offenders))
@@ -695,6 +891,28 @@ def self_test():
         check("landing has no sidebar", 'class="sidebar"' not in index)
         check("news has no sidebar", 'class="sidebar"' not in news)
 
+        # 8c. the zh subset: pairs link each way (hreflang + switcher),
+        #     the zh landing carries zh status labels, and the zh sidebar
+        #     tags the untranslated pages
+        zh_install = (one / "zh" / "manual" / "install" / "index.html").read_text()
+        zh_landing = (one / "zh" / "index.html").read_text()
+        check("en install hreflangs zh", 'hreflang="zh"' in install and 'hreflang="x-default"' in install)
+        check("zh install hreflangs en", 'hreflang="en"' in zh_install)
+        check("en install carries the lang switch", 'class="lang-switch"' in install)
+        check("zh install carries the lang switch", 'class="lang-switch"' in zh_install)
+        check("packages page has no lang switch", 'class="lang-switch"' not in packages)
+        check("zh landing renders zh status labels", "已移植的包" in zh_landing)
+        check("zh landing has no news preview", "news-preview" not in zh_landing)
+        check("zh install has a sidebar", 'class="sidebar"' in zh_install)
+        check(
+            "zh sidebar tags untranslated entries EN",
+            '<span class="en-tag">EN</span>' in zh_install,
+        )
+        check(
+            "zh sidebar marks the active entry",
+            '<li class="active"><a href="../../../zh/manual/install/">' in zh_install,
+        )
+
     # 9. the OMARCHY_SITE_BASE variant: 404 absolutes get the base, the
     #    other pages stay root-relative (subpath-safe)
     os.environ["OMARCHY_SITE_BASE"] = "/omarchy-gentoo/"
@@ -718,6 +936,27 @@ def self_test():
 
     check("vendored markdown imports", markdown.__version__.startswith("3."))
 
+    # 11. translation stamps: structural problems fail; a moved English
+    #     source warns loudly (the banner ships, the deploy proceeds,
+    #     and this line keeps the debt visible on every run)
+    for zh_out, (zh_src, en_src) in sorted(ZH_SOURCE_OF.items()):
+        text = (SITE / zh_src).read_text()
+        if not re.search(r"^en-source: content/", text, re.M):
+            check(f"translation declares en-source: {zh_src}", False)
+        if not re.search(r"^en-stamp: [0-9a-f]{16}$", text, re.M):
+            check(
+                f"translation carries a well-formed en-stamp: {zh_src}",
+                False,
+                f"(expected en-stamp: {en_revision(en_src)})",
+            )
+    for zh_src, expected in stale_translations():
+        print(
+            f"site-build: STALE TRANSLATION {zh_src} — English moved after it; "
+            f"reconcile the page, then run: bin/site-build --stamp-zh "
+            f"(this en revision stamps as {expected})",
+            file=sys.stderr,
+        )
+
     failed = [name for name, ok, _ in checks if not ok]
     print(f"site-build self-test: {len(checks) - len(failed)}/{len(checks)} checks passed")
     if failed:
@@ -727,6 +966,22 @@ def self_test():
 def main():
     if "--self-test" in sys.argv[1:]:
         self_test()
+        return
+    if "--stamp-zh" in sys.argv[1:]:
+        # Refresh the translation stamps: the honest reading is "the
+        # English source was reviewed against this translation after it
+        # changed", so run it after actually reconciling the zh pages.
+        for zh_out, (zh_src, en_src) in sorted(ZH_SOURCE_OF.items()):
+            path = SITE / zh_src
+            text = path.read_text()
+            new = re.sub(
+                r"^en-stamp: [0-9a-f]*$",
+                f"en-stamp: {en_revision(en_src)}",
+                text,
+                flags=re.M,
+            )
+            path.write_text(new)
+            print(f"site-build: stamped {zh_src} @ {en_revision(en_src)}")
         return
     if len(sys.argv) > 1:
         die(f"unknown argument {sys.argv[1]!r} (try --self-test)")

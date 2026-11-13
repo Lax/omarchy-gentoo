@@ -8,6 +8,15 @@ change lands; newest month first.
 
 ## 2026-11
 
+- The site gains a Chinese subset (not a mirror): /zh/ covers the landing
+  and the seven pages a Chinese reader lands on; packages/news/developing
+  stay English. English stays canonical — each zh page stamps the English
+  revision it translated (bin/site-build --stamp-zh), a moved English
+  source renders a stale-translation banner linking back and prints a
+  STALE TRANSLATION warning on every run, and the operative command
+  lines are pinned by invariants in both locales. hreflang pairs plus an
+  EN/中文 switcher on translated pages only; the zh sidebar tags
+  untranslated entries EN.
 - The theme/plugin compatibility round: audited upstream's theme and
   plugin machinery script by script (all of it is git + file operations —
   zero pacman, zero sudo — and the omarchy ebuild ships bin/* unpatched,
