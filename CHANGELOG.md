@@ -8,6 +8,13 @@ change lands; newest month first.
 
 ## 2026-11
 
+- Follow-up on the recipes' org move: omarchy-themes-intros SRC_URI/HOMEPAGE
+  and the overlay README's upstream link retargeted from basecamp/omarchy to
+  omacom/omarchy (fetches worked via GitHub redirect until now); once-bin
+  keeps basecamp/once — upstream's own recipe still names it. The
+  upstream-sync bump job got its policy timeout-minutes (every cloud job,
+  AGENTS.md); the stale bin/gentoo-coverage pointer in gentoo-skip.tsv now
+  names the real readers.
 - Documentation site: `site/` + `bin/site-build` (vendored python-markdown,
   zero external deps) + `site.yml` — deployed to GitHub Pages on every
   push; coverage/news/install-command pages are generated from the tree at

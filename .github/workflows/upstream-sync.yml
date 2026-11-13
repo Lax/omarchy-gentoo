@@ -34,6 +34,10 @@ concurrency:
 jobs:
   bump:
     runs-on: ubuntu-24.04
+    # Every cloud job sets timeout-minutes (AGENTS.md quota policy); this
+    # job's real runs average under a minute, the budget covers container
+    # starts and a slow sync.
+    timeout-minutes: 15
     container:
       image: archlinux:base-devel
     steps:
