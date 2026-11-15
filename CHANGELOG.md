@@ -8,6 +8,22 @@ change lands; newest month first.
 
 ## 2026-11
 
+- The porting backlog drains to one row: omarchy-local-ai, x11-misc/
+  omarchy-amiga-screensaver and gui-apps/shibumi-shell are ported and
+  passed the full verify (pkgcheck, whole-tree resolve, prepare). The
+  screensaver's fs-uae hard dep turned out to live in ::gentoo, so no
+  skip row was needed; shibumi-shell pulled in a new hand-maintained
+  media-fonts/material-symbols-variable (its Arch recipe lives in Arch
+  extra, outside the omarchy-pkgs submodule, so the overlay pins
+  upstream's variablefont/ tip directly; sync-gentoo keeps it as the
+  harmless "not present" note class). shibumi and the screensaver carry
+  ~amd64 only — their hard deps (omarchy, fs-uae) have no arm64 keyword.
+  The one remaining open row, ath12k-board-fallback, needs a design
+  decision rather than a mechanical port: its payload is two libalpm
+  PostTransaction hooks keyed on linux-firmware paths, and Portage has
+  no file-triggered hook equivalent — port it once a trigger mechanism
+  (systemd path unit, portage hook, or an elog-documented manual run)
+  is chosen.
 - The upstream-sync follow-up issue is readable now: bin/sync-gentoo gained
   --render-report, which groups the reconcile log by what the reader must
   do - a needs-work table with a concrete fix hint per row, the mechanical

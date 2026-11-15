@@ -207,3 +207,11 @@ zsh						app-shells/zsh
 zsh-syntax-highlighting	app-shells/zsh-syntax-highlighting
 openblas				sci-libs/openblas
 gtk-update-icon-cache		DROP
+python-dbus			dev-python/dbus-python
+iputils				net-misc/iputils
+networkmanager			net-misc/networkmanager
+power-profiles-daemon		sys-power/power-profiles-daemon
+upower				sys-power/upower
+adwaita-fonts			media-fonts/adwaita-fonts
+fs-uae				app-emulation/fs-uae
+ttf-material-symbols-variable	media-fonts/material-symbols-variable

@@ -108,3 +108,7 @@ yt-dlp	net-misc	yt-dlp
 plain	app-editors	plain
 aether	x11-themes	aether-bin
 yaru-icon-theme	x11-themes	yaru-icon-theme
+omarchy-local-ai	app-misc	omarchy-local-ai
+omarchy-amiga-screensaver	x11-misc	omarchy-amiga-screensaver
+ttf-material-symbols-variable	media-fonts	material-symbols-variable
+shibumi-shell	gui-apps	shibumi-shell
