@@ -21,6 +21,9 @@
 #                                     packages, or every row in the table)
 #        sync-gentoo --check          Report drift only; exit 1 if any
 #        sync-gentoo --self-test
+#        sync-gentoo --render-report <log> [commit]
+#                                     Group a reconcile log into the
+#                                     markdown follow-up issue body
 #
 # Requirements: bash, plus a version comparator for the upgrade-direction
 # check: pacman's vercmp when on PATH, otherwise portage ordering PMS forms
@@ -290,6 +293,173 @@ sync_one() {
 		done
 		DRIFT=1
 	fi
+}
+
+# <row minus its status prefix> -> the package column: everything before
+# the first ": ", or "-" when the row has no readable shape.
+report_atom() {
+	if [[ "$1" == *": "* ]]; then
+		printf '%s' "${1%%: *}"
+	else
+		printf '%s' "-"
+	fi
+}
+
+# <row minus its status prefix> -> the message column: everything after
+# the first ": ", or the whole row when it does not split.
+report_msg() {
+	if [[ "$1" == *": "* ]]; then
+		printf '%s' "${1#*: }"
+	else
+		printf '%s' "$1"
+	fi
+}
+
+# <work message> <package column> -> a one-line "how to finish" hint for
+# the report table. Pattern-matched on the wording sync_one emits; the
+# generic fallback keeps unknown rows visible rather than silent.
+fix_hint() {
+	local msg="$1" atom="$2" stale new asset
+	case "$msg" in
+		*"update pinned URLs by hand"*)
+			stale=$(sed -n "s/^renamed to [^ ]* BUT '\([^']*\)'.*/\1/p" <<<"$msg")
+			new=$(sed -n "s/^renamed to \([^ ]*\) BUT.*/\1/p" <<<"$msg")
+			if [[ -n "$stale" && -n "$new" ]]; then
+				echo "pinned URLs still name \`$stale\` - move them to \`$new\`, then \`bin/ai-port --verify $atom\`"
+			else
+				echo "move the stale version pins to the new release, then \`bin/ai-port --verify $atom\`"
+			fi ;;
+		*"update files/ by hand"*)
+			asset=$(sed -n "s/.*BUT \(files\/[^ ]*\) is missing.*/\1/p" <<<"$msg")
+			if [[ -n "$asset" ]]; then
+				echo "\`$asset\` did not travel with the rename - create or rename it for the new version, then \`bin/ai-port --verify $atom\`"
+			else
+				echo "create or rename the missing files/ asset for the new version, then \`bin/ai-port --verify $atom\`"
+			fi ;;
+		*"table row has no ebuild"*)
+			echo "port the package: \`bin/ai-port <arch-name>\`" ;;
+		*"multiple ebuilds"*)
+			echo "delete or merge the stale ebuilds so exactly one remains, then rerun \`bin/sync-gentoo <arch-name>\`" ;;
+		*"no arch-pkgver marker"*)
+			echo "add the \`# arch-pkgver:\` marker so drift is detectable, or rename with \`bin/sync-gentoo <arch-name>\`" ;;
+		*"could not read pkgver"*)
+			echo "inspect the recipe - its PKGBUILD may be broken upstream" ;;
+		*"no usable version comparator"*)
+			echo "rerun on a host with vercmp (pacman) or portage; the rename is refused, never guessed" ;;
+		*"already exists"*)
+			echo "compare the existing ebuild against the recipe, then drop the stale one" ;;
+		*"(run: bin/sync-gentoo"*)
+			echo "run the command printed in the message to apply the rename" ;;
+		*)
+			echo "read AGENTS.md and act on the message" ;;
+	esac
+}
+
+# <logfile> [commit] -> the upstream-sync follow-up issue body on stdout.
+#
+# The reconcile log is one line per table row with a status prefix
+# (ok/note/skip/bump/drift). Dumped raw it is unreadable in bulk - the
+# pre-2026-11 issue joined every row into one line (issue #58) - so group
+# it here by what the reader must do: rows to finish, mechanical renames
+# that already landed, hand-maintained rows without a recipe, and the
+# verified rest. The raw log ships inside a collapsible block so nothing
+# is lost for agents that parse it.
+render_report() {
+	local log="$1" commit="${2:-}"
+	if [[ ! -f "$log" ]]; then
+		echo "render_report: no such log: $log" >&2
+		return 1
+	fi
+
+	local -a work=() bumped=() absent=() notes=() oks=() other=()
+	local line prefix rest
+	while IFS= read -r line; do
+		[[ -n "$line" ]] || continue
+		prefix=""
+		rest=""
+		read -r prefix rest <<<"$line"
+		[[ -n "$rest" ]] || rest="$prefix"
+		case $prefix in
+			ok) oks+=("$line") ;;
+			bump)
+				if [[ "$rest" == *"by hand"* ]]; then
+					work+=("$rest")
+				else
+					bumped+=("$rest")
+				fi ;;
+			note)
+				if [[ "$rest" == *": not present in the upstream submodule" ]]; then
+					absent+=("${rest%%: not present*}")
+				else
+					notes+=("$rest")
+				fi ;;
+			skip|drift|FAIL*) work+=("$rest") ;;
+			*) other+=("$line") ;;
+		esac
+	done <"$log"
+
+	local -a out=()
+	if [[ -n "$commit" ]]; then
+		out+=("The upstream bump in \`$commit\` renamed some ebuilds mechanically, but the rows grouped below need an agent or human to finish.")
+	else
+		out+=("The latest upstream sync renamed some ebuilds mechanically, but the rows grouped below need an agent or human to finish.")
+	fi
+	out+=(""
+		"**Scope:** ${#work[@]} needs work · ${#bumped[@]} mechanical renames · ${#oks[@]} verified in sync · ${#absent[@]} hand-maintained (no upstream recipe)"
+		"Statuses: \`bump\` renamed · \`skip\` could not be reconciled automatically · \`note\` informational · \`ok\` ebuild and recipe agree"
+		""
+		"## Needs work (${#work[@]})"
+		"")
+	local msg atom
+	if (( ${#work[@]} )); then
+		out+=("| package | what happened | how to finish |" "|---|---|---|")
+		for msg in "${work[@]}"; do
+			atom=$(report_atom "$msg")
+			out+=("| \`${atom}\` | $(report_msg "$msg" | sed 's/|/\\|/g') | $(fix_hint "$(report_msg "$msg")" "$atom" | sed 's/|/\\|/g') |")
+		done
+		out+=("")
+	fi
+	if (( ${#bumped[@]} )); then
+		out+=("## Renamed mechanically - no action needed (${#bumped[@]})" ""
+			"| package | result |" "|---|---|")
+		for msg in "${bumped[@]}"; do
+			out+=("| \`$(report_atom "$msg")\` | $(report_msg "$msg") |")
+		done
+		out+=("")
+	fi
+	if (( ${#absent[@]} )); then
+		local names
+		names=$(printf "\`%s\`, " "${absent[@]}")
+		out+=("## Hand-maintained, no upstream recipe (${#absent[@]})" ""
+			"Kept in the overlay by hand; the upstream submodule has no recipe for them, so there is nothing to reconcile: ${names%, }"
+			"")
+	fi
+	if (( ${#notes[@]} )); then
+		out+=("## Other notes (${#notes[@]})" "")
+		for msg in "${notes[@]}"; do
+			out+=("- $msg")
+		done
+		out+=("")
+	fi
+	if (( ${#other[@]} )); then
+		out+=("## Unrecognised lines (${#other[@]})" "")
+		for msg in "${other[@]}"; do
+			out+=("- \`$msg\`")
+		done
+		out+=("")
+	fi
+	if (( ${#oks[@]} )); then
+		out+=("## Verified in sync (${#oks[@]})" ""
+			"<details><summary>the full ok list</summary>" ""
+			"\`\`\`")
+		for msg in "${oks[@]}"; do
+			out+=("$msg")
+		done
+		out+=("\`\`\`" "" "</details>" "")
+	fi
+	out+=("Read AGENTS.md, fix, verify with \`bin/ai-port --verify <category>/<name>\`, and push to master."
+		"The gates in gentoo.yml validate the result and file further issues if anything is off.")
+	printf '%s\n' "${out[@]}"
 }
 
 cmd_sync() {
@@ -572,6 +742,53 @@ SH
 	check "resolved FILESDIR asset stays quiet" "0" \
 		"$(cd "$fixture" && ./bin/sync-gentoo fixture 2>&1 | grep -c 'update files/ by hand')"
 
+	# The renderer groups a reconcile log into the follow-up issue body:
+	# one row per line, work orders first, noise collapsed - the
+	# pre-2026-11 issue joined every row into one line (issue #58).
+	local report_log="$fixture/reconcile.log"
+	cat >"$report_log" <<'LOG'
+ok    app-admin/1password at 8.12.44
+note  bun-bin: not present in the upstream submodule
+note  elephant: not present in the upstream submodule
+note  app-misc/older: recipe (0.9.0) is older than the ebuild's baseline (1.1.0); leaving it alone
+bump  app-misc/claude-code: renamed to 2.1.323
+bump  media-gfx/omasnap: renamed to 1.26.2 BUT '1.26.0' still appears inside; update pinned URLs by hand
+bump  app-misc/gone: renamed to 2.0 BUT files/gone-2.0.conf is missing; update files/ by hand
+skip  app-misc/weird: no arch-pkgver marker and file name does not match the current recipe
+LOG
+	local report
+	report=$(cd "$fixture" && ./bin/sync-gentoo --render-report reconcile.log 5d70bb4)
+	check "report scope line" "1" \
+		"$(grep -c '^\*\*Scope:\*\* 3 needs work · 1 mechanical renames · 1 verified in sync · 2 hand-maintained' <<<"$report")"
+	check "needs-work section counted" "1" \
+		"$(grep -c '^## Needs work (3)$' <<<"$report")"
+	check "stale-pin row names the package" "1" \
+		"$(grep -c '^| `media-gfx/omasnap` | renamed to 1.26.2 BUT' <<<"$report")"
+	check "stale-pin hint extracts both versions" "1" \
+		"$(grep -c 'pinned URLs still name `1.26.0` - move them to `1.26.2`' <<<"$report")"
+	check "verify command names the atom" "1" \
+		"$(grep -c 'bin/ai-port --verify media-gfx/omasnap' <<<"$report")"
+	check "files-asset hint names the stranded file" "1" \
+		"$(grep -c '`files/gone-2.0.conf` did not travel with the rename' <<<"$report")"
+	check "skip hint explains the marker" "1" \
+		"$(grep -c 'add the `# arch-pkgver:` marker so drift is detectable' <<<"$report")"
+	check "absent rows collapsed to one list, not one-per-line" "0" \
+		"$(grep -c 'not present in the upstream submodule' <<<"$report")"
+	check "collapsed list keeps both names" "1" \
+		"$(grep -c '^Kept in the overlay by hand.*`bun-bin`, `elephant`$' <<<"$report")"
+	check "mechanical renames section counted" "1" \
+		"$(grep -c '^## Renamed mechanically - no action needed (1)$' <<<"$report")"
+	check "older recipe stays a note" "1" \
+		"$(grep -c '^- app-misc/older: recipe' <<<"$report")"
+	check "ok rows kept verbatim in the collapsible block" "1" \
+		"$(grep -c '^ok    app-admin/1password at 8.12.44$' <<<"$report")"
+	check "footer kept" "1" "$(grep -c 'push to master' <<<"$report")"
+
+	# An empty log renders a valid (all-zero) body instead of failing.
+	: >"$fixture/empty.log"
+	report=$(cd "$fixture" && ./bin/sync-gentoo --render-report empty.log)
+	check "empty log renders" "1" "$(grep -c '^## Needs work (0)$' <<<"$report")"
+
 	rm -rf "$fixture"
 
 	if ((failures)); then
@@ -582,7 +799,7 @@ SH
 }
 
 usage() {
-	sed -n '2,23p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+	sed -n '2,26p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
 }
 
 if [[ "${1:-}" == --self-test ]]; then
@@ -590,6 +807,9 @@ if [[ "${1:-}" == --self-test ]]; then
 elif [[ "${1:-}" == --check ]]; then
 	shift
 	cmd_sync check "$@"
+elif [[ "${1:-}" == --render-report ]]; then
+	shift
+	render_report "$@"
 elif [[ "${1:-}" == -h || "${1:-}" == --help ]]; then
 	usage
 elif [[ "${1:-}" == "" ]]; then

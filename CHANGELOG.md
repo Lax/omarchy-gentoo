@@ -8,6 +8,13 @@ change lands; newest month first.
 
 ## 2026-11
 
+- The upstream-sync follow-up issue is readable now: bin/sync-gentoo gained
+  --render-report, which groups the reconcile log by what the reader must
+  do - a needs-work table with a concrete fix hint per row, the mechanical
+  renames, the hand-maintained rows collapsed to one list, and the verified
+  rest plus the raw log inside a collapsible block. The old body joined
+  every row into one line (issue #58). The workflow step just calls the
+  renderer, so the format is covered by the tool's self-tests.
 - The site gains a Chinese subset (not a mirror): /zh/ covers the landing
   and the seven pages a Chinese reader lands on; packages/news/developing
   stay English. English stays canonical — each zh page stamps the English
