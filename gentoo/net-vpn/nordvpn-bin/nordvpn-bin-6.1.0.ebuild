@@ -1,4 +1,4 @@
-# arch-pkgver: 6.0.2
+# arch-pkgver: 6.1.0
 # Ported from pkgbuilds/nordvpn-bin. Arch's sysusers line becomes an
 # acct-group package; the .install's runtime symlink loop (linking the
 # bundled libs into /usr/lib) is done statically at install time instead.
