@@ -1,4 +1,4 @@
-# arch-pkgver: 26.11.1+build156338
+# arch-pkgver: 26.11.2+build166354
 # Ported from pkgbuilds/perplexity. The Arch version's "+build" does not fit a
 # Gentoo version string; it maps to the _p suffix here. The pool URL needs %2B
 # for '+'.
