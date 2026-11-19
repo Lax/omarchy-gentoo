@@ -1,4 +1,4 @@
-# arch-pkgver: 0.6.7
+# arch-pkgver: 0.6.8
 # Ported from pkgbuilds/omarchy-local-ai.
 # Copyright 2026 Gentoo Authors
 # Distributed under the terms of the MIT license

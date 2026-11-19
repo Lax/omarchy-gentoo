@@ -1,4 +1,4 @@
-# arch-pkgver: 0.2.4
+# arch-pkgver: 0.2.5
 # Ported from pkgbuilds/shibumi-shell.
 # Copyright 2026 Gentoo Authors
 # Distributed under the terms of the MIT license
