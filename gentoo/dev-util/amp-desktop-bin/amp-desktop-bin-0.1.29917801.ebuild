@@ -1,4 +1,4 @@
-# arch-pkgver: 0.1.29915281
+# arch-pkgver: 0.1.29917801
 # Ported from pkgbuilds/amp-desktop-bin. Repackages the desktop app's .deb,
 # which already carries the .desktop file (with the sign-in callback scheme),
 # the icon set, and the apparmor profile (installed as data, like Arch does).
