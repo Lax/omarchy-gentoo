@@ -1,4 +1,4 @@
-# arch-pkgver: 157.0.4341.60
+# arch-pkgver: 158.0.4370.33
 # Copyright 2026, omarchy-gentoo overlay team
 # Distributed under the terms of the MIT license
 
