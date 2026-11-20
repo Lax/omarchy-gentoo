@@ -1,4 +1,4 @@
-# arch-pkgver: 4.1.13.26
+# arch-pkgver: 4.1.13.29
 # Ported from pkgbuilds/wechat-bin. Tencent publishes only the newest build,
 # at a URL that never names a version, so the Manifest digest is the pin:
 # once Tencent moves, an old PV stops fetching - which is the point.
