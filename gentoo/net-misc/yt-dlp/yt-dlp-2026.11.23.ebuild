@@ -1,4 +1,4 @@
-# arch-pkgver: 2026.10.26
+# arch-pkgver: 2026.11.23
 # Ported from pkgbuilds/yt-dlp. The official zipapp, run by the system
 # python: it bundles yt-dlp-ejs (the YouTube challenge solver) and installs
 # no Python modules, so it can follow upstream on the fast ring.
