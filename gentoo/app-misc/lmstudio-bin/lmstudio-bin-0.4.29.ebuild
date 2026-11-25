@@ -1,4 +1,4 @@
-# arch-pkgver: 0.4.28
+# arch-pkgver: 0.4.29
 # Ported from pkgbuilds/lmstudio-bin. The AppImage is installed as-is; it
 # self-extracts on first run (fuse2 at runtime or --appimage-extract-and-run).
 EAPI=8
