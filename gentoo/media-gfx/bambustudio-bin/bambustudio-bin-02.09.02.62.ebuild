@@ -1,4 +1,4 @@
-# arch-pkgver: 02.09.01.70
+# arch-pkgver: 02.09.02.62
 # Ported from pkgbuilds/bambustudio-bin. The AppImage is unpacked with 7zz
 # (never executed), the same approach the Arch package takes.
 EAPI=8
@@ -9,7 +9,7 @@ DESCRIPTION="PC Software for BambuLab's 3D printers"
 HOMEPAGE="https://github.com/bambulab/BambuStudio"
 # _build is the timestamp upstream appends to the release asset. The 02.09
 # release renamed the asset from BambuStudio_ubuntu24.04- to BambuStudio_ubu24-.
-_BUILD=20261103183404
+_BUILD=20261124164959
 SRC_URI="https://github.com/bambulab/BambuStudio/releases/download/v${PV}/BambuStudio_ubu24-v${PV}-${_BUILD}.AppImage -> ${P}.AppImage"
 
 S="${WORKDIR}"
