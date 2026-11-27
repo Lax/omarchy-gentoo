@@ -1,4 +1,4 @@
-# arch-pkgver: 9.0.0.261118001
+# arch-pkgver: 9.0.0.261125002
 # Ported from pkgbuilds/dingtalk-bin. The vendor tree bundles a GCC-8-era
 # libstdc++ plus old libm/libgbm/GL dispatch and its own libcurl linked
 # against OpenLDAP 2.4 and librtmp, which no Gentoo package provides; the
