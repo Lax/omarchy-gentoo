@@ -1,4 +1,4 @@
-# arch-pkgver: 0.18.1
+# arch-pkgver: 0.19.1
 # Ported from pkgbuilds/wordcraft-bin.
 EAPI=8
 
